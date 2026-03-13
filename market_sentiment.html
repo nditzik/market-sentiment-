@@ -1,0 +1,2089 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>לוח מחוונים – סנטימנט שוק</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230d1520'/><polyline points='4,24 10,14 16,18 22,8 28,12' fill='none' stroke='%2300e676' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/><circle cx='22' cy='8' r='2.5' fill='%2300e676'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=IBM+Plex+Sans+Hebrew:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  :root {
+    --bg: #080c10;
+    --card: #0d1520;
+    --card2: #111d2e;
+    --border: #1a2d45;
+    --bullish: #00e676;
+    --bearish: #ff4d6a;
+    --neutral: #f5a623;
+    --accent: #3b9eff;
+    --text: #e8f0f8;
+    --subtle: #5a7a94;
+    --dim: #2a3f55;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans Hebrew', sans-serif;
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .mono { font-family: 'DM Mono', monospace; }
+
+  /* ── HEADER ── */
+  header {
+    background: linear-gradient(135deg, #0d1520 0%, #0a1830 50%, #050d18 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(10px);
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .header-logo {
+    width: 38px;
+    height: 38px;
+    background: linear-gradient(135deg, var(--accent), #1a5fa8);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    box-shadow: 0 0 20px rgba(59,158,255,0.3);
+  }
+
+  header h1 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.3px;
+  }
+
+  header h1 span {
+    color: var(--accent);
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .badge {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 12px;
+    color: var(--subtle);
+    font-family: 'DM Mono', monospace;
+  }
+
+  .version-badge {
+    background: rgba(59,158,255,0.1);
+    border: 1px solid rgba(59,158,255,0.3);
+    color: var(--accent);
+  }
+
+  /* ── MAIN ── */
+  main {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 28px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  /* ── UPLOAD ZONE ── */
+  #upload-section {
+    display: block;
+  }
+
+  #dashboard-section {
+    display: none;
+  }
+
+  .upload-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 32px;
+    padding: 60px 24px;
+  }
+
+  .upload-title {
+    text-align: center;
+  }
+
+  .upload-title h2 {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 10px;
+    color: var(--text);
+  }
+
+  .upload-title p {
+    color: var(--subtle);
+    font-size: 15px;
+    max-width: 480px;
+  }
+
+  .drop-zone {
+    width: 100%;
+    max-width: 680px;
+    border: 2px dashed var(--dim);
+    border-radius: 18px;
+    padding: 48px 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: var(--card);
+    position: relative;
+  }
+
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(59,158,255,0.05);
+    box-shadow: 0 0 40px rgba(59,158,255,0.1);
+  }
+
+  .drop-icon {
+    font-size: 52px;
+    margin-bottom: 16px;
+    opacity: 0.7;
+  }
+
+  .drop-zone h3 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+
+  .drop-zone p {
+    color: var(--subtle);
+    margin-bottom: 20px;
+  }
+
+  .upload-btn {
+    background: linear-gradient(135deg, var(--accent), #1a5fa8);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 28px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'IBM Plex Sans Hebrew', sans-serif;
+  }
+
+  .upload-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(59,158,255,0.4);
+  }
+
+  #file-input { display: none; }
+
+  .file-status {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .file-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 10px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--subtle);
+    transition: all 0.3s;
+  }
+
+  .file-chip.loaded {
+    border-color: var(--bullish);
+    color: var(--bullish);
+    background: rgba(0,230,118,0.07);
+  }
+
+  .file-chip .chip-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--dim);
+    transition: all 0.3s;
+  }
+
+  .file-chip.loaded .chip-dot {
+    background: var(--bullish);
+    box-shadow: 0 0 8px var(--bullish);
+  }
+
+  .parse-btn {
+    background: linear-gradient(135deg, #00e676, #00a854);
+    color: #040a0e;
+    border: none;
+    border-radius: 12px;
+    padding: 14px 40px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'IBM Plex Sans Hebrew', sans-serif;
+    display: none;
+  }
+
+  .parse-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,230,118,0.4);
+  }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0.5;
+  }
+
+  .card-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--subtle);
+    margin-bottom: 16px;
+  }
+
+  /* ── SCORE CARD ── */
+  .score-card {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    align-items: center;
+  }
+
+  .score-gauge-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .gauge-svg {
+    width: 220px;
+    height: 120px;
+    overflow: visible;
+  }
+
+  .gauge-track {
+    fill: none;
+    stroke: var(--dim);
+    stroke-width: 16;
+    stroke-linecap: round;
+  }
+
+  .gauge-fill {
+    fill: none;
+    stroke-width: 16;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.8s ease;
+  }
+
+  .gauge-score-text {
+    font-family: 'DM Mono', monospace;
+    font-size: 36px;
+    font-weight: 500;
+    fill: var(--text);
+    text-anchor: middle;
+    dominant-baseline: middle;
+  }
+
+  .gauge-label-text {
+    font-size: 12px;
+    fill: var(--subtle);
+    text-anchor: middle;
+  }
+
+  .sentiment-label {
+    font-size: 22px;
+    font-weight: 700;
+    text-align: center;
+  }
+
+  .score-inputs {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .dual-score-panel {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+
+  .dual-score-box {
+    flex: 1;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    text-align: center;
+  }
+
+  .dual-score-label {
+    font-size: 10px;
+    color: var(--subtle);
+    margin-bottom: 4px;
+    letter-spacing: 0.3px;
+  }
+
+  .dual-score-val {
+    font-family: 'DM Mono', monospace;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+
+  .dual-score-sub {
+    font-size: 11px;
+    margin-top: 3px;
+  }
+
+  .dual-score-gap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    min-width: 60px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border);
+    text-align: center;
+  }
+
+  .gap-arrow {
+    font-size: 18px;
+    line-height: 1;
+  }
+
+  .gap-val {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .gap-label {
+    font-size: 9px;
+    color: var(--subtle);
+    margin-top: 2px;
+  }
+
+  .score-input-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .score-input-symbol {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    width: 44px;
+    color: var(--accent);
+    text-align: right;
+  }
+
+  .score-input-bar-wrap {
+    flex: 1;
+    height: 8px;
+    background: var(--dim);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .score-input-bar {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+    background: var(--accent);
+  }
+
+  .score-input-val {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    width: 52px;
+    text-align: left;
+    color: var(--text);
+  }
+
+  .score-input-weight {
+    font-size: 11px;
+    color: var(--subtle);
+    width: 36px;
+    text-align: right;
+  }
+
+  /* ── INDEX CARDS ── */
+  .index-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+
+  .index-card {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .index-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+
+  .index-symbol {
+    font-family: 'DM Mono', monospace;
+    font-size: 26px;
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1;
+  }
+
+  .index-price {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--subtle);
+    margin-top: 4px;
+  }
+
+  .index-badge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+
+  .index-metrics {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .metric-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .metric-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 6px 0;
+    opacity: 0.5;
+  }
+
+  .side-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin: 4px 0 2px 0;
+    padding: 6px 10px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+
+  .side-row {
+    display: grid;
+    grid-template-columns: 32px 1fr 1fr 1fr;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+  }
+
+  .side-label {
+    font-weight: 700;
+    font-size: 10px;
+    color: var(--subtle);
+    letter-spacing: 0.5px;
+  }
+
+  .side-count { color: var(--text); text-align: right; }
+  .side-prem  { color: var(--accent); text-align: right; }
+  .side-pct   { color: var(--subtle); text-align: right; }
+
+  .conviction-header {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .conviction-score-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .conviction-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 2px 10px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.05);
+  }
+
+  .conviction-bar-group {
+    margin-bottom: 7px;
+  }
+
+  .conviction-bar-label {
+    font-size: 10px;
+    color: var(--subtle);
+    margin-bottom: 3px;
+  }
+
+  .conviction-bar-track {
+    width: 100%;
+    height: 5px;
+    background: var(--dim, rgba(255,255,255,0.07));
+    border-radius: 3px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .conviction-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    position: absolute;
+    right: 0;
+    transition: width 0.8s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  .conviction-bar-vals {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: var(--subtle);
+    margin-top: 2px;
+  }
+
+  .card-conclusion {
+    margin-top: 14px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border-right: 3px solid;
+    background: rgba(255,255,255,0.03);
+    font-size: 12px;
+    line-height: 1.8;
+    color: var(--subtle);
+  }
+
+  .card-conclusion .conclusion-headline {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .card-conclusion .conclusion-line::before {
+    content: '• ';
+  }
+
+  .metric-label {
+    font-size: 12px;
+    color: var(--subtle);
+    white-space: nowrap;
+  }
+
+  .metric-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    font-weight: 500;
+    text-align: left;
+  }
+
+  .bullish-bar-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .bullish-bar-track {
+    width: 100%;
+    height: 6px;
+    background: var(--dim);
+    border-radius: 3px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .bullish-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--bullish), #00a854);
+    border-radius: 3px;
+    transition: width 1s cubic-bezier(0.4,0,0.2,1);
+    position: absolute;
+    right: 0;
+  }
+
+  .bullish-bar-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--subtle);
+  }
+
+  /* Donut */
+  .donut-wrap {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .donut-svg {
+    width: 60px;
+    height: 60px;
+    flex-shrink: 0;
+  }
+
+  .donut-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+  }
+
+  .donut-legend-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+  }
+
+  .donut-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .donut-legend-label { color: var(--subtle); }
+  .donut-legend-val { font-family: 'DM Mono', monospace; margin-right: auto; }
+
+  /* Smart money + sweep */
+  .smart-row {
+    display: flex;
+    gap: 10px;
+  }
+
+  .mini-stat {
+    flex: 1;
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    text-align: center;
+  }
+
+  .mini-stat-label {
+    font-size: 10px;
+    color: var(--subtle);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 4px;
+  }
+
+  .mini-stat-val {
+    font-family: 'DM Mono', monospace;
+    font-size: 18px;
+    font-weight: 500;
+  }
+
+  .mini-stat-sub {
+    font-size: 10px;
+    color: var(--subtle);
+    margin-top: 2px;
+  }
+
+
+  /* ── TEXT SUMMARY ── */
+  .summary-overall {
+    font-size: 15px;
+    line-height: 1.8;
+    color: var(--text);
+    padding: 14px 18px;
+    background: var(--card2);
+    border-radius: 10px;
+    border-right: 3px solid var(--accent);
+    margin-bottom: 16px;
+  }
+  .summary-index-row {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .summary-index-block {
+    padding: 12px 16px;
+    background: var(--card2);
+    border-radius: 10px;
+    border-right: 3px solid var(--border);
+    font-size: 13.5px;
+    line-height: 1.75;
+  }
+  .summary-index-block .idx-title {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .summary-conclusion {
+    padding: 12px 16px;
+    background: rgba(59,158,255,0.07);
+    border: 1px solid rgba(59,158,255,0.2);
+    border-radius: 10px;
+    font-size: 13.5px;
+    line-height: 1.75;
+    color: var(--text);
+  }
+  .summary-conclusion strong { color: var(--accent); }
+  .tag-bull { display:inline-block;padding:1px 8px;border-radius:4px;background:rgba(0,230,118,0.15);color:var(--bullish);font-size:11px;font-weight:600; }
+  .tag-bear { display:inline-block;padding:1px 8px;border-radius:4px;background:rgba(255,77,106,0.15);color:var(--bearish);font-size:11px;font-weight:600; }
+  .tag-neut { display:inline-block;padding:1px 8px;border-radius:4px;background:rgba(245,166,35,0.15);color:var(--neutral);font-size:11px;font-weight:600; }
+
+  /* ── TIMELINE ── */
+  .timeline-wrap {
+    overflow-x: auto;
+  }
+
+  .timeline-svg-container {
+    min-width: 600px;
+    position: relative;
+  }
+
+  .tl-svg {
+    width: 100%;
+    display: block;
+  }
+
+  .tl-bar-bullish { fill: rgba(0,230,118,0.7); }
+  .tl-bar-bearish { fill: rgba(255,77,106,0.7); }
+  .tl-bar-bullish:hover { fill: var(--bullish); }
+  .tl-bar-bearish:hover { fill: var(--bearish); }
+
+  .tl-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    fill: var(--subtle);
+    text-anchor: middle;
+  }
+
+  .tl-axis-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    fill: var(--subtle);
+    text-anchor: end;
+  }
+
+  .tl-legend {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+
+  .tl-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--subtle);
+  }
+
+  .tl-legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+  }
+
+  /* ── MISC ── */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+  }
+
+  .section-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .section-sub {
+    font-size: 12px;
+    color: var(--subtle);
+  }
+
+  .divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border), transparent);
+  }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  .text-bullish { color: var(--bullish); }
+  .text-bearish { color: var(--bearish); }
+  .text-neutral { color: var(--neutral); }
+  .text-accent { color: var(--accent); }
+  .text-subtle { color: var(--subtle); }
+
+  .pulse {
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .fade-in {
+    animation: fadeIn 0.6s ease forwards;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 1024px) {
+    .index-cards-grid { grid-template-columns: 1fr; }
+    .score-card { grid-template-columns: 1fr; }
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 640px) {
+    main { padding: 16px 12px; }
+    header { padding: 14px 16px; }
+    header h1 { font-size: 16px; }
+  }
+
+  /* ── EMPTY STATE ── */
+  .empty-state {
+    text-align: center;
+    padding: 40px;
+    color: var(--subtle);
+  }
+
+  .empty-icon {
+    font-size: 40px;
+    margin-bottom: 12px;
+    opacity: 0.4;
+  }
+
+  /* tooltip */
+  .tooltip {
+    position: fixed;
+    background: #1a2d45;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: var(--text);
+    pointer-events: none;
+    z-index: 9999;
+    display: none;
+    max-width: 220px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  }
+
+  .no-data-msg {
+    padding: 30px;
+    text-align: center;
+    color: var(--subtle);
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+
+<!-- TOOLTIP -->
+<div class="tooltip" id="tooltip"></div>
+
+<!-- HEADER -->
+<header>
+  <div class="header-left">
+    <div class="header-logo">📊</div>
+    <div>
+      <h1>לוח מחוונים – <span>סנטימנט שוק</span></h1>
+      <div style="font-size:11px;color:var(--subtle);margin-top:2px;">ניתוח זרם אופציות · SPY · QQQ · IWM</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="badge" id="date-badge"></div>
+    <div class="badge version-badge">v2.1</div>
+  </div>
+</header>
+
+<main>
+
+  <!-- UPLOAD SECTION -->
+  <section id="upload-section">
+    <div class="upload-container">
+      <div class="upload-title">
+        <h2>העלו קבצי נתוני אופציות</h2>
+        <p>גררו ושילו עד 3 קבצי CSV (SPY, QQQ, IWM) — הזיהוי אוטומטי לפי עמודת Symbol</p>
+      </div>
+
+      <div class="drop-zone" id="drop-zone">
+        <div class="drop-icon">📂</div>
+        <h3>גררו קבצים לכאן</h3>
+        <p>או לחצו לבחירה ידנית</p>
+        <button class="upload-btn" onclick="document.getElementById('file-input').click()">בחר קבצים</button>
+        <input type="file" id="file-input" multiple accept=".csv">
+      </div>
+
+      <div class="file-status" id="file-status">
+        <div class="file-chip" id="chip-spy"><span class="chip-dot"></span> SPY</div>
+        <div class="file-chip" id="chip-qqq"><span class="chip-dot"></span> QQQ</div>
+        <div class="file-chip" id="chip-iwm"><span class="chip-dot"></span> IWM</div>
+      </div>
+
+      <button class="parse-btn" id="parse-btn" onclick="buildDashboard()">🔍 נתח נתונים</button>
+    </div>
+  </section>
+
+  <!-- DASHBOARD SECTION -->
+  <section id="dashboard-section" class="fade-in">
+
+    <!-- MARKET SCORE -->
+    <div class="card">
+      <div class="card-title">ציון סנטימנט כולל</div>
+      <div class="score-card">
+        <div class="score-gauge-wrap">
+          <svg class="gauge-svg" viewBox="0 0 220 130" id="gauge-svg">
+            <path class="gauge-track" d="M 20 110 A 90 90 0 0 1 200 110" />
+            <path class="gauge-fill" id="gauge-fill"
+              d="M 20 110 A 90 90 0 0 1 200 110"
+              stroke-dasharray="283"
+              stroke-dashoffset="283"
+              stroke="var(--bullish)" />
+            <text class="gauge-score-text" id="gauge-score-text" x="110" y="95">--</text>
+            <text class="gauge-label-text" x="110" y="120" id="gauge-label-text">ממתין לנתונים</text>
+            <text class="gauge-label-text" x="20" y="126" style="text-anchor:middle;font-size:9px;">דובי</text>
+            <text class="gauge-label-text" x="200" y="126" style="text-anchor:middle;font-size:9px;">שורי</text>
+          </svg>
+          <div class="sentiment-label" id="sentiment-label" style="color:var(--subtle)">—</div>
+        </div>
+        <div class="score-inputs" id="score-inputs">
+          <div style="color:var(--subtle);font-size:13px;text-align:center;padding:20px 0;">ממתין לטעינת נתונים...</div>
+        </div>
+        <div class="dual-score-panel" id="dual-score-panel" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- TEXT SUMMARY -->
+    <div class="card" id="text-summary-card" style="display:none">
+      <div class="card-title">📋 ניתוח טקסטואלי — Options Flow</div>
+      <div id="text-summary-content"></div>
+    </div>
+
+    <!-- INDEX CARDS -->
+    <div class="index-cards-grid" id="index-cards-grid">
+      <!-- Populated by JS -->
+    </div>
+
+    <!-- FLOW TIMELINE -->
+    <div class="card">
+      <div class="section-header">
+        <div>
+          <div class="section-title">ציר זמן – זרם פרמיה לפי שעה</div>
+          <div class="section-sub">זרם נטו (שורי − דובי) בגזרים שעתיים</div>
+        </div>
+      </div>
+      <div class="tl-legend">
+        <div class="tl-legend-item"><div class="tl-legend-dot" style="background:rgba(0,230,118,0.7)"></div> זרם שורי</div>
+        <div class="tl-legend-item"><div class="tl-legend-dot" style="background:rgba(255,77,106,0.7)"></div> זרם דובי</div>
+      </div>
+      <div class="timeline-wrap">
+        <div class="timeline-svg-container" id="timeline-container">
+          <div class="no-data-msg">ממתין לנתונים...</div>
+        </div>
+      </div>
+    </div>
+
+  </section>
+</main>
+
+<script>
+// ── STATE ──
+const state = {
+  files: { SPY: null, QQQ: null, IWM: null },
+  data: { SPY: [], QQQ: [], IWM: [] },
+  allTrades: [],
+  sortCol: 'premium',
+  sortDir: 'desc',
+  fileDate: null
+};
+
+// ── DATE ──
+function extractDateFromFilename(filename) {
+  const m = filename.match(/(\d{4}-\d{2}-\d{2})/);
+  if (!m) return null;
+  const [year, month, day] = m[1].split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function updateDateBadge() {
+  const d = state.fileDate || new Date();
+  document.getElementById('date-badge').textContent = d.toLocaleDateString('he-IL', {
+    year: 'numeric', month: 'long', day: 'numeric'
+  });
+}
+
+updateDateBadge();
+
+// ── UPLOAD ──
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+
+dropZone.addEventListener('click', e => {
+  if (e.target.tagName !== 'BUTTON') fileInput.click();
+});
+
+dropZone.addEventListener('dragover', e => {
+  e.preventDefault();
+  dropZone.classList.add('drag-over');
+});
+
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  handleFiles(e.dataTransfer.files);
+});
+
+fileInput.addEventListener('change', e => handleFiles(e.target.files));
+
+function handleFiles(files) {
+  Array.from(files).forEach(file => {
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: result => {
+        if (!result.data || result.data.length === 0) return;
+        const firstRow = result.data[0];
+        const sym = (firstRow['Symbol'] || firstRow['symbol'] || '').trim().toUpperCase();
+        let detected = null;
+        if (sym === 'SPY') detected = 'SPY';
+        else if (sym === 'QQQ') detected = 'QQQ';
+        else if (sym === 'IWM') detected = 'IWM';
+        // fallback: scan rows
+        if (!detected) {
+          for (const row of result.data) {
+            const s = (row['Symbol'] || '').trim().toUpperCase();
+            if (['SPY','QQQ','IWM'].includes(s)) { detected = s; break; }
+          }
+        }
+        if (detected) {
+          state.files[detected] = file;
+          state.data[detected] = result.data;
+          const fd = extractDateFromFilename(file.name);
+          if (fd) { state.fileDate = fd; updateDateBadge(); }
+          markChip(detected);
+          checkAllLoaded();
+        }
+      }
+    });
+  });
+}
+
+function markChip(sym) {
+  const chip = document.getElementById('chip-' + sym.toLowerCase());
+  if (chip) chip.classList.add('loaded');
+}
+
+function checkAllLoaded() {
+  const loaded = Object.values(state.files).filter(Boolean).length;
+  const parseBtn = document.getElementById('parse-btn');
+  if (loaded > 0) {
+    parseBtn.style.display = 'block';
+    parseBtn.textContent = `🔍 נתח נתונים (${loaded}/3 קבצים)`;
+  }
+}
+
+// ── METRICS ──
+function classifySentiment(type, side) {
+  type = (type || '').trim().toLowerCase();
+  side = (side || '').trim().toLowerCase();
+  if (type === 'call' && side === 'ask') return 'bullish';
+  if (type === 'call' && side === 'bid') return 'bearish';
+  if (type === 'put' && side === 'ask') return 'bearish';
+  if (type === 'put' && side === 'bid') return 'bullish';
+  return 'neutral';
+}
+
+function isISO(code) {
+  if (!code) return false;
+  code = code.trim().toUpperCase();
+  return code === 'ISOI' || code.startsWith('ISO');
+}
+
+function isFloorBlock(code) {
+  if (!code) return false;
+  code = code.trim().toUpperCase();
+  return ['SLFT','MLFT','MFSL','CBMO'].includes(code);
+}
+
+function classifyWithOpening(type, side, opening) {
+  const s = classifySentiment(type, side);
+  if (s !== 'neutral') return s;
+  opening = (opening || '').trim().toLowerCase();
+  type = (type || '').trim().toLowerCase();
+  if (opening === 'buytoopen') return type === 'call' ? 'bullish' : 'bearish';
+  if (opening === 'selltoopen') return type === 'call' ? 'bearish' : 'bullish';
+  return 'neutral';
+}
+
+function classifyMLStructures(rows) {
+  const groups = {};
+  rows.forEach(row => {
+    const code = (row['Code'] || '').trim().toUpperCase();
+    if (!code.startsWith('ML') && !code.startsWith('MF') && !code.startsWith('MA')) return;
+    const time = (row['Time'] || '').trim();
+    if (!time) return;
+    if (!groups[time]) groups[time] = [];
+    groups[time].push(row);
+  });
+
+  const mlResult = { bullish: 0, bearish: 0, neutral: 0, bullishPrem: 0, bearishPrem: 0, structures: [] };
+
+  Object.entries(groups).forEach(([time, legs]) => {
+    if (legs.length < 2) return;
+    const totalPrem = legs.reduce((s, r) => s + parsePremium(r['Premium']), 0);
+    const types = legs.map(r => (r['Type'] || '').toLowerCase());
+    const sizes = legs.map(r => parseInt(r['Size']) || 0);
+    const expiries = [...new Set(legs.map(r => r['Expires']))];
+    const allPuts = types.every(t => t === 'put');
+    const allCalls = types.every(t => t === 'call');
+
+    let structType = 'Unknown', direction = 'neutral';
+
+    if (expiries.length > 1) {
+      structType = 'Calendar'; direction = 'neutral';
+    } else if (!allPuts && !allCalls) {
+      const uSizes = [...new Set(sizes)];
+      structType = legs.length === 4 && uSizes.length === 1 ? 'Iron Condor' : legs.length === 2 ? 'Strangle' : 'Complex';
+      direction = 'neutral';
+    } else if (legs.length === 3) {
+      const sorted = [...sizes].sort((a,b) => a-b);
+      const isBfly = sorted[1] >= sorted[0] * 1.7;
+      structType = isBfly ? (allPuts ? 'Put Butterfly' : 'Call Butterfly') : (allPuts ? 'Put Spread' : 'Call Spread');
+      direction = isBfly ? 'neutral' : (allPuts ? 'bearish' : 'bullish');
+    } else if (legs.length >= 4) {
+      structType = allPuts ? 'Put Condor' : 'Call Condor';
+      direction = 'neutral';
+    } else if (legs.length === 2) {
+      const sorted2 = legs.slice().sort((a,b) => parseFloat(a['Strike']) - parseFloat(b['Strike']));
+      if (allPuts) {
+        const highPutBought = (sorted2[1]['Side']||'').toLowerCase() === 'ask' || (sorted2[1]['*']||'').toLowerCase() === 'buytoopen';
+        structType = highPutBought ? 'Bear Put Spread' : 'Bull Put Spread';
+        direction = highPutBought ? 'bearish' : 'bullish';
+      } else {
+        const lowCallBought = (sorted2[0]['Side']||'').toLowerCase() === 'ask' || (sorted2[0]['*']||'').toLowerCase() === 'buytoopen';
+        structType = lowCallBought ? 'Bull Call Spread' : 'Bear Call Spread';
+        direction = lowCallBought ? 'bullish' : 'bearish';
+      }
+    }
+
+    if (direction === 'bullish') { mlResult.bullish++; mlResult.bullishPrem += totalPrem; }
+    else if (direction === 'bearish') { mlResult.bearish++; mlResult.bearishPrem += totalPrem; }
+    else mlResult.neutral++;
+
+    mlResult.structures.push({ structType, direction, totalPrem, legCount: legs.length });
+  });
+
+  return mlResult;
+}
+
+function parsePremium(val) {
+  if (val === null || val === undefined || val === '') return 0;
+  const n = parseFloat(String(val).replace(/[^0-9.\-]/g, ''));
+  return isNaN(n) ? 0 : n;
+}
+
+function parseDTE(val) {
+  const n = parseInt(val);
+  return isNaN(n) ? 0 : n;
+}
+
+function parsePrice(val) {
+  const n = parseFloat(String(val).replace(/[^0-9.]/g, ''));
+  return isNaN(n) ? 0 : n;
+}
+
+function computeMetrics(rows) {
+  let bullishPrem = 0, bearishPrem = 0, neutralPrem = 0;
+  let callPrem = 0, putPrem = 0;
+  let putBuyPrem = 0, putSellPrem = 0, callBuyPrem = 0, callSellPrem = 0;
+  let smartBull = 0, smartBear = 0;
+  let floorCount = 0, floorBull = 0, floorBear = 0, floorPrem = 0;
+  let floorCall = 0, floorPut = 0, floorCallPrem = 0, floorPutPrem = 0;
+  let isoCount = 0, isoBull = 0, isoBear = 0, isoPrem = 0;
+  let nearBullPrem = 0, nearBearPrem = 0;
+  let farBullPrem  = 0, farBearPrem  = 0;
+  let bullDTEsum = 0, bullDTEcount = 0;
+  let bearDTEsum = 0, bearDTEcount = 0;
+  let lastPrice = 0;
+  let totalPrem = 0, totalVolume = 0;
+  let callCount = 0, putCount = 0;
+  let callAsk = 0, callBid = 0, callMid = 0;
+  let callAskPrem = 0, callBidPrem = 0, callMidPrem = 0;
+  let putAsk = 0, putBid = 0, putMid = 0;
+  let putAskPrem = 0, putBidPrem = 0, putMidPrem = 0;
+
+  rows.forEach(row => {
+    const prem = parsePremium(row['Premium']);
+    const type = (row['Type'] || '').trim().toLowerCase();
+    const side = (row['Side'] || '').trim().toLowerCase();
+    const code = (row['Code'] || '').trim();
+    const opening = (row['*'] || '').trim();
+    const dte = parseDTE(row['DTE']);
+    const price = parsePrice(row['Price~']);
+    const size = parseInt(row['Size']) || 0;
+    if (price > 0) lastPrice = price;
+
+    totalPrem += prem;
+    totalVolume += size;
+
+    const sentiment = classifySentiment(type, side);
+    const sentimentFull = classifyWithOpening(type, side, opening);
+
+    if (type === 'call') {
+      callPrem += prem;
+      callCount++;
+      if (side === 'ask')      { callAsk++;  callAskPrem  += prem; }
+      else if (side === 'bid') { callBid++;  callBidPrem  += prem; }
+      else                     { callMid++;  callMidPrem  += prem; }
+    }
+    if (type === 'put') {
+      putPrem += prem;
+      putCount++;
+      if (side === 'ask')      { putAsk++;   putAskPrem   += prem; }
+      else if (side === 'bid') { putBid++;   putBidPrem   += prem; }
+      else                     { putMid++;   putMidPrem   += prem; }
+    }
+
+    if (type === 'put' && side === 'ask') putBuyPrem += prem;
+    if (type === 'put' && side === 'bid') putSellPrem += prem;
+    if (type === 'call' && side === 'ask') callBuyPrem += prem;
+    if (type === 'call' && side === 'bid') callSellPrem += prem;
+
+    if (sentiment === 'bullish') {
+      bullishPrem += prem;
+      if (prem >= 1000000) smartBull++;
+      bullDTEsum += dte;
+      bullDTEcount++;
+    } else if (sentiment === 'bearish') {
+      bearishPrem += prem;
+      if (prem >= 1000000) smartBear++;
+      bearDTEsum += dte;
+      bearDTEcount++;
+    } else {
+      neutralPrem += prem;
+    }
+
+    if (isFloorBlock(code)) {
+      floorCount++;
+      floorPrem += prem;
+      if (type === 'call') { floorCall++; floorCallPrem += prem; }
+      if (type === 'put')  { floorPut++;  floorPutPrem  += prem; }
+      if (sentimentFull === 'bullish') floorBull++;
+      else if (sentimentFull === 'bearish') floorBear++;
+      if (dte <= 21) {
+        if (sentimentFull === 'bullish') nearBullPrem += prem;
+        else if (sentimentFull === 'bearish') nearBearPrem += prem;
+      } else {
+        if (sentimentFull === 'bullish') farBullPrem += prem;
+        else if (sentimentFull === 'bearish') farBearPrem += prem;
+      }
+    }
+
+    if (isISO(code)) {
+      isoCount++;
+      isoPrem += prem;
+      if (sentimentFull === 'bullish') isoBull++;
+      else if (sentimentFull === 'bearish') isoBear++;
+      if (dte <= 21) {
+        if (sentimentFull === 'bullish') nearBullPrem += prem;
+        else if (sentimentFull === 'bearish') nearBearPrem += prem;
+      } else {
+        if (sentimentFull === 'bullish') farBullPrem += prem;
+        else if (sentimentFull === 'bearish') farBearPrem += prem;
+      }
+    }
+  });
+
+  const totalDirectional = bullishPrem + bearishPrem;
+  const bullishPct = totalDirectional > 0 ? (bullishPrem / totalDirectional) * 100 : 50;
+  const netFlow = bullishPrem - bearishPrem;
+  const avgBullDTE = bullDTEcount > 0 ? bullDTEsum / bullDTEcount : 0;
+  const avgBearDTE = bearDTEcount > 0 ? bearDTEsum / bearDTEcount : 0;
+  const putPressurePct = putPrem > 0 ? (putBuyPrem / putPrem) * 100 : 50;
+
+  const mlResult = classifyMLStructures(rows);
+  const mlBullPrem = mlResult.bullishPrem;
+  const mlBearPrem = mlResult.bearishPrem;
+
+  const floorDir = floorBull + floorBear;
+  const floorScore = floorDir > 0 ? (floorBull / floorDir) * 100 : 50;
+  const isoDir = isoBull + isoBear;
+  const isoScore = isoDir > 0 ? (isoBull / isoDir) * 100 : 50;
+  const mlDir = mlBullPrem + mlBearPrem;
+  const mlScore = mlDir > 0 ? (mlBullPrem / mlDir) * 100 : 50;
+  const nearTotal = nearBullPrem + nearBearPrem;
+  const farTotal  = farBullPrem  + farBearPrem;
+  const nearScore = nearTotal > 0 ? (nearBullPrem / nearTotal) * 100 : 50;
+  const farScore  = farTotal  > 0 ? (farBullPrem  / farTotal)  * 100 : 50;
+  const convictionScore = isoDir > 0
+    ? isoScore * 0.40 + floorScore * 0.35 + mlScore * 0.25
+    : floorDir > 0
+      ? floorScore * 0.55 + mlScore * 0.45
+      : mlDir > 0 ? mlScore : 50;
+
+  return {
+    bullishPrem, bearishPrem, neutralPrem,
+    callPrem, putPrem,
+    putBuyPrem, putSellPrem, callBuyPrem, callSellPrem,
+    bullishPct, netFlow, putPressurePct,
+    smartBull, smartBear,
+    floorCount, floorBull, floorBear, floorPrem,
+    floorCall, floorPut, floorCallPrem, floorPutPrem,
+    isoCount, isoBull, isoBear, isoPrem,
+    nearScore, farScore, convictionScore,
+    mlBull: mlResult.bullish, mlBear: mlResult.bearish, mlNeutral: mlResult.neutral,
+    mlBullPrem, mlBearPrem, mlStructures: mlResult.structures,
+    avgBullDTE, avgBearDTE,
+    lastPrice,
+    totalTrades: rows.length,
+    totalPrem, totalVolume,
+    callCount, putCount,
+    callAsk, callBid, callMid,
+    callAskPrem, callBidPrem, callMidPrem,
+    putAsk, putBid, putMid,
+    putAskPrem, putBidPrem, putMidPrem
+  };
+}
+
+function scoreLabel(score) {
+  if (score >= 65) return { text: 'שורי', color: 'var(--bullish)' };
+  if (score >= 55) return { text: 'שורי מתון', color: '#7bda9e' };
+  if (score >= 45) return { text: 'ניטרלי', color: 'var(--neutral)' };
+  if (score >= 35) return { text: 'דובי מתון', color: '#ff8a9e' };
+  return { text: 'דובי', color: 'var(--bearish)' };
+}
+
+function fmtM(val) {
+  const m = val / 1e6;
+  if (Math.abs(m) >= 1000) return (m / 1000).toFixed(1) + 'B';
+  if (Math.abs(m) >= 1) return m.toFixed(2) + 'M';
+  return (val / 1000).toFixed(0) + 'K';
+}
+
+function fmtSign(val) {
+  return val >= 0 ? '+' + fmtM(val) : '-' + fmtM(Math.abs(val));
+}
+
+// ── BUILD DASHBOARD ──
+function buildDashboard() {
+  // Aggregate all rows
+  state.allTrades = [];
+  ['SPY','QQQ','IWM'].forEach(sym => {
+    state.data[sym].forEach(row => {
+      state.allTrades.push({ ...row, _symbol: sym });
+    });
+  });
+
+  renderGauge();
+  generateTextSummary();
+  renderIndexCards();
+  renderTimeline();
+
+  document.getElementById('upload-section').style.display = 'none';
+  document.getElementById('dashboard-section').style.display = 'block';
+  document.getElementById('dashboard-section').classList.add('fade-in');
+}
+
+// ── GAUGE ──
+function renderGauge() {
+  const weights = { SPY: 0.40, QQQ: 0.35, IWM: 0.25 };
+  let weightedScore = 0, weightedConviction = 0, totalWeight = 0;
+  const inputs = [];
+
+  ['SPY','QQQ','IWM'].forEach(sym => {
+    if (state.data[sym].length === 0) return;
+    const m = computeMetrics(state.data[sym]);
+    const w = weights[sym];
+    weightedScore += m.bullishPct * w;
+    weightedConviction += m.convictionScore * w;
+    totalWeight += w;
+    inputs.push({ sym, pct: m.bullishPct, conv: m.convictionScore, w });
+  });
+
+  const finalScore = totalWeight > 0 ? weightedScore / totalWeight : 50;
+  const finalConviction = totalWeight > 0 ? weightedConviction / totalWeight : 50;
+  const lbl = scoreLabel(finalScore);
+
+  // Gauge arc
+  const pct = Math.max(0, Math.min(100, finalScore));
+  const offset = 283 - (pct / 100) * 283;
+  const fillEl = document.getElementById('gauge-fill');
+  fillEl.style.strokeDashoffset = offset;
+  fillEl.style.stroke = lbl.color;
+  document.getElementById('gauge-score-text').textContent = Math.round(finalScore);
+  document.getElementById('gauge-label-text').textContent = '';
+  document.getElementById('sentiment-label').textContent = lbl.text;
+  document.getElementById('sentiment-label').style.color = lbl.color;
+
+  // Input bars
+  const container = document.getElementById('score-inputs');
+  container.innerHTML = inputs.map(inp => `
+    <div class="score-input-row">
+      <div class="score-input-symbol">${inp.sym}</div>
+      <div class="score-input-bar-wrap">
+        <div class="score-input-bar" style="width:${inp.pct.toFixed(1)}%;background:${scoreLabel(inp.pct).color}"></div>
+      </div>
+      <div class="score-input-val mono">${inp.pct.toFixed(1)}%</div>
+      <div class="score-input-weight">${(inp.w * 100).toFixed(0)}%</div>
+    </div>
+  `).join('');
+
+  // Per-symbol dual score panel
+  const panel = document.getElementById('dual-score-panel');
+  if (!panel) return;
+  if (inputs.length === 0) { panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+
+  const symRows = inputs.map(inp => {
+    const gc = scoreLabel(inp.pct).color;
+    const gl = scoreLabel(inp.pct).text;
+    const cc = scoreLabel(inp.conv).color;
+    const cl = scoreLabel(inp.conv).text;
+    const gap = inp.conv - inp.pct;
+    const gapAbs = Math.abs(gap);
+    const gapColor = gapAbs < 5 ? 'var(--subtle)' : gapAbs < 15 ? 'var(--neutral)' : gap > 0 ? 'var(--bullish)' : 'var(--bearish)';
+    const gapArrow = gapAbs < 5 ? '↔' : gap > 0 ? '↑' : '↓';
+    const gapNote = gapAbs < 5 ? 'תואם' : gap > 0 ? 'מוסדי שורי יותר' : 'מוסדי דובי יותר';
+    return `
+      <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--border)">
+        <div style="min-width:36px;font-size:12px;font-weight:700;color:var(--text);font-family:'DM Mono',monospace">${inp.sym}</div>
+        <div style="flex:1;text-align:center">
+          <div style="font-size:18px;font-weight:700;color:${gc};font-family:'DM Mono',monospace">${Math.round(inp.pct)}</div>
+          <div style="font-size:10px;color:${gc};margin-top:2px">${gl}</div>
+        </div>
+        <div style="min-width:70px;text-align:center">
+          <div style="font-size:18px;color:${gapColor}">${gapArrow}</div>
+          <div style="font-size:12px;font-weight:700;color:${gapColor};font-family:'DM Mono',monospace">${gapAbs.toFixed(0)}</div>
+          <div style="font-size:9px;color:var(--subtle);margin-top:1px">${gapNote}</div>
+        </div>
+        <div style="flex:1;text-align:center">
+          <div style="font-size:18px;font-weight:700;color:${cc};font-family:'DM Mono',monospace">${Math.round(inp.conv)}</div>
+          <div style="font-size:10px;color:${cc};margin-top:2px">${cl}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  panel.innerHTML = `
+    <div style="display:flex;gap:10px;padding-bottom:4px">
+      <div style="min-width:36px"></div>
+      <div style="flex:1;text-align:center;font-size:10px;color:var(--subtle)">זרם כללי</div>
+      <div style="min-width:70px;text-align:center;font-size:10px;color:var(--subtle)">פער</div>
+      <div style="flex:1;text-align:center;font-size:10px;color:var(--subtle)">קונוויקשן מוסדי</div>
+    </div>
+    ${symRows}
+  `;
+}
+
+// ── INDEX CARDS ──
+function renderIndexCards() {
+  const grid = document.getElementById('index-cards-grid');
+  grid.innerHTML = '';
+
+  ['SPY','QQQ','IWM'].forEach(sym => {
+    const rows = state.data[sym];
+    if (rows.length === 0) return;
+    const m = computeMetrics(rows);
+    const lbl = scoreLabel(m.bullishPct);
+
+    const putPressColor = m.putPressurePct > 65 ? 'var(--bearish)' : m.putPressurePct < 35 ? 'var(--bullish)' : 'var(--neutral)';
+    const netColor = m.netFlow >= 0 ? 'var(--bullish)' : 'var(--bearish)';
+    const smartDir = m.smartBull >= m.smartBear ? '↑ שורי' : '↓ דובי';
+    const smartColor = m.smartBull >= m.smartBear ? 'var(--bullish)' : 'var(--bearish)';
+    const bullW = m.bullishPrem + m.bearishPrem > 0 ? (m.bullishPrem / (m.bullishPrem + m.bearishPrem)) * 100 : 50;
+    const callW = m.callPrem + m.putPrem > 0 ? (m.callPrem / (m.callPrem + m.putPrem)) * 100 : 50;
+
+    // Donut
+    const r = 24, cx = 30, cy = 30;
+    const circ = 2 * Math.PI * r;
+    const callArc = (callW / 100) * circ;
+    const putArc = circ - callArc;
+
+    const card = document.createElement('div');
+    card.className = 'card index-card fade-in';
+    card.style.borderTopColor = lbl.color;
+    card.innerHTML = `
+      <div class="index-header">
+        <div>
+          <div class="index-symbol">${sym}</div>
+          <div class="index-price mono">$${m.lastPrice.toFixed(2)}</div>
+        </div>
+        <div class="index-badge" style="background:${lbl.color}22;color:${lbl.color};border:1px solid ${lbl.color}44">${lbl.text}</div>
+      </div>
+
+      <div class="bullish-bar-wrap">
+        <div class="bullish-bar-track">
+          <div class="bullish-bar-fill" style="width:${bullW.toFixed(1)}%"></div>
+        </div>
+        <div class="bullish-bar-labels">
+          <span class="text-bearish">דובי</span>
+          <span class="mono" style="color:${lbl.color}">${m.bullishPct.toFixed(1)}% שורי</span>
+          <span class="text-bullish">שורי</span>
+        </div>
+      </div>
+
+      <div class="index-metrics">
+        <div class="metric-row">
+          <div class="metric-label">זרם נטו</div>
+          <div class="metric-value mono" style="color:${netColor}">${fmtSign(m.netFlow)}</div>
+        </div>
+        <div class="metric-row">
+          <div class="metric-label">קניית פוטים (לחץ)</div>
+          <div class="metric-value mono" style="color:${putPressColor}">${m.putPressurePct.toFixed(0)}%</div>
+        </div>
+        <div class="metric-row">
+          <div class="metric-label">DTE ממוצע שורי</div>
+          <div class="metric-value mono text-bullish">${m.avgBullDTE.toFixed(0)} ימים</div>
+        </div>
+        <div class="metric-row">
+          <div class="metric-label">DTE ממוצע דובי</div>
+          <div class="metric-value mono text-bearish">${m.avgBearDTE.toFixed(0)} ימים</div>
+        </div>
+
+        <div class="metric-divider"></div>
+
+        <div class="metric-row">
+          <div class="metric-label">סה"כ עסקאות</div>
+          <div class="metric-value mono">${m.totalTrades.toLocaleString()}</div>
+        </div>
+        <div class="metric-row">
+          <div class="metric-label">סך פרמיה כולל</div>
+          <div class="metric-value mono">${fmtM(m.totalPrem)}</div>
+        </div>
+        <div class="metric-row">
+          <div class="metric-label">סה"כ וולום (חוזים)</div>
+          <div class="metric-value mono">${m.totalVolume.toLocaleString()}</div>
+        </div>
+
+        <div class="metric-divider"></div>
+
+        <div class="metric-row">
+          <div class="metric-label">📦 Floor Blocks</div>
+          <div class="metric-value mono">${m.floorCount} · <span style="color:var(--bullish)">↑${m.floorBull}</span> <span style="color:var(--bearish)">↓${m.floorBear}</span> · ${fmtM(m.floorPrem)}</div>
+        </div>
+        <div class="side-breakdown">
+          <div class="side-row">
+            <span class="side-label" style="color:var(--bullish)">Call</span>
+            <span class="side-count mono">${m.floorCall}</span>
+            <span class="side-prem mono">${fmtM(m.floorCallPrem)}</span>
+            <span class="side-pct mono">${m.floorCount > 0 ? (m.floorCall/m.floorCount*100).toFixed(0) : 0}%</span>
+          </div>
+          <div class="side-row">
+            <span class="side-label" style="color:var(--bearish)">Put</span>
+            <span class="side-count mono">${m.floorPut}</span>
+            <span class="side-prem mono">${fmtM(m.floorPutPrem)}</span>
+            <span class="side-pct mono">${m.floorCount > 0 ? (m.floorPut/m.floorCount*100).toFixed(0) : 0}%</span>
+          </div>
+        </div>
+        <div class="metric-row">
+          <div class="metric-label">⚡ ISO Sweeps</div>
+          <div class="metric-value mono">${m.isoCount} · <span style="color:var(--bullish)">↑${m.isoBull}</span> <span style="color:var(--bearish)">↓${m.isoBear}</span>${m.isoPrem > 0 ? ' · ' + fmtM(m.isoPrem) : ''}</div>
+        </div>
+
+        <div class="metric-divider"></div>
+
+        ${(() => {
+          const cs = m.convictionScore;
+          const csColor = cs >= 60 ? 'var(--bullish)' : cs <= 40 ? 'var(--bearish)' : 'var(--neutral)';
+          const csLabel = cs >= 65 ? 'שורי חזק' : cs >= 55 ? 'שורי מתון' : cs >= 45 ? 'ניטרלי' : cs >= 35 ? 'דובי מתון' : 'דובי חזק';
+          const nearColor = m.nearScore >= 55 ? 'var(--bullish)' : m.nearScore <= 45 ? 'var(--bearish)' : 'var(--neutral)';
+          const farColor  = m.farScore  >= 55 ? 'var(--bullish)' : m.farScore  <= 45 ? 'var(--bearish)' : 'var(--neutral)';
+          const topML = m.mlStructures
+            .filter(s => s.direction !== 'neutral')
+            .sort((a,b) => b.totalPrem - a.totalPrem)
+            .slice(0, 3);
+          const mlSummaryHtml = topML.length > 0
+            ? topML.map(s => {
+                const c = s.direction === 'bullish' ? 'var(--bullish)' : 'var(--bearish)';
+                return `<span style="color:${c}">${s.structType} ${fmtM(s.totalPrem)}</span>`;
+              }).join(' · ')
+            : `<span style="color:var(--subtle)">אין מבנים כיווניים</span>`;
+          return `
+          <div class="conviction-header">🎯 קונוויקשן מוסדי</div>
+          <div class="metric-row">
+            <div class="metric-label">ML כיווני</div>
+            <div class="metric-value" style="font-size:11px;line-height:1.6;text-align:left">${mlSummaryHtml}</div>
+          </div>
+          <div class="conviction-score-row">
+            <span style="font-size:12px;color:var(--subtle)">ציון מאוחד</span>
+            <span class="conviction-badge" style="color:${csColor};border:1px solid ${csColor}44">${Math.round(cs)}/100 — ${csLabel}</span>
+          </div>
+          <div class="conviction-bar-group">
+            <div class="conviction-bar-label">📅 שבוע — Floor+ISO DTE≤21 (${m.nearScore.toFixed(0)}% שורי)</div>
+            <div class="conviction-bar-track">
+              <div class="conviction-bar-fill" style="width:${m.nearScore.toFixed(1)}%;background:${nearColor}"></div>
+            </div>
+            <div class="conviction-bar-vals"><span style="color:var(--bearish)">דובי</span><span style="color:${nearColor}">${m.nearScore.toFixed(0)}%</span><span style="color:var(--bullish)">שורי</span></div>
+          </div>
+          <div class="conviction-bar-group">
+            <div class="conviction-bar-label">📆 טווח — Floor+ISO DTE>21 (${m.farScore.toFixed(0)}% שורי)</div>
+            <div class="conviction-bar-track">
+              <div class="conviction-bar-fill" style="width:${m.farScore.toFixed(1)}%;background:${farColor}"></div>
+            </div>
+            <div class="conviction-bar-vals"><span style="color:var(--bearish)">דובי</span><span style="color:${farColor}">${m.farScore.toFixed(0)}%</span><span style="color:var(--bullish)">שורי</span></div>
+          </div>`;
+        })()}
+
+        <div class="metric-divider"></div>
+
+        <div class="metric-row">
+          <div class="metric-label">Call — סה"כ</div>
+          <div class="metric-value mono text-bullish">${m.callCount.toLocaleString()} עסקאות · ${fmtM(m.callPrem)}</div>
+        </div>
+        <div class="side-breakdown">
+          ${[
+            { label: 'Ask', count: m.callAsk, prem: m.callAskPrem },
+            { label: 'Bid', count: m.callBid, prem: m.callBidPrem },
+            { label: 'Mid', count: m.callMid, prem: m.callMidPrem }
+          ].map(s => {
+            const pct = m.callCount > 0 ? (s.count / m.callCount * 100).toFixed(0) : 0;
+            return `<div class="side-row">
+              <span class="side-label">${s.label}</span>
+              <span class="side-count mono">${s.count}</span>
+              <span class="side-prem mono">${fmtM(s.prem)}</span>
+              <span class="side-pct mono">${pct}%</span>
+            </div>`;
+          }).join('')}
+        </div>
+
+        <div class="metric-divider"></div>
+
+        <div class="metric-row">
+          <div class="metric-label">Put — סה"כ</div>
+          <div class="metric-value mono text-bearish">${m.putCount.toLocaleString()} עסקאות · ${fmtM(m.putPrem)}</div>
+        </div>
+        <div class="side-breakdown">
+          ${[
+            { label: 'Ask', count: m.putAsk, prem: m.putAskPrem },
+            { label: 'Bid', count: m.putBid, prem: m.putBidPrem },
+            { label: 'Mid', count: m.putMid, prem: m.putMidPrem }
+          ].map(s => {
+            const pct = m.putCount > 0 ? (s.count / m.putCount * 100).toFixed(0) : 0;
+            return `<div class="side-row">
+              <span class="side-label">${s.label}</span>
+              <span class="side-count mono">${s.count}</span>
+              <span class="side-prem mono">${fmtM(s.prem)}</span>
+              <span class="side-pct mono">${pct}%</span>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+
+      <div class="donut-wrap">
+        <svg class="donut-svg" viewBox="0 0 60 60">
+          <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,77,106,0.3)" stroke-width="10"/>
+          <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(0,230,118,0.7)" stroke-width="10"
+            stroke-dasharray="${callArc.toFixed(2)} ${putArc.toFixed(2)}"
+            stroke-dashoffset="${(circ * 0.25).toFixed(2)}" />
+        </svg>
+        <div class="donut-legend">
+          <div class="donut-legend-row">
+            <div class="donut-dot" style="background:var(--bullish)"></div>
+            <div class="donut-legend-label">Call</div>
+            <div class="donut-legend-val mono text-bullish">${fmtM(m.callPrem)}</div>
+          </div>
+          <div class="donut-legend-row">
+            <div class="donut-dot" style="background:var(--bearish)"></div>
+            <div class="donut-legend-label">Put</div>
+            <div class="donut-legend-val mono text-bearish">${fmtM(m.putPrem)}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="smart-row">
+        <div class="mini-stat">
+          <div class="mini-stat-label">כסף חכם</div>
+          <div class="mini-stat-val mono" style="color:${smartColor}">${m.smartBull + m.smartBear}</div>
+          <div class="mini-stat-sub" style="color:${smartColor}">${smartDir}</div>
+        </div>
+        <div class="mini-stat">
+          <div class="mini-stat-label">Floor Blocks</div>
+          <div class="mini-stat-val mono" style="color:var(--accent)">${m.floorCount}</div>
+          <div class="mini-stat-sub" style="color:var(--bullish)">↑${m.floorBull} <span style="color:var(--bearish)">↓${m.floorBear}</span></div>
+        </div>
+      </div>
+
+      ${(() => {
+        const cs = m.convictionScore;
+        const near = m.nearScore;
+        const far = m.farScore;
+        const floorDir = m.floorBull + m.floorBear;
+        const floorBearPct = floorDir > 0 ? (m.floorBear / floorDir) * 100 : 50;
+        const floorBullPct = floorDir > 0 ? (m.floorBull / floorDir) * 100 : 50;
+        const borderColor = cs >= 60 ? 'var(--bullish)' : cs <= 40 ? 'var(--bearish)' : 'var(--neutral)';
+
+        // Headline
+        let headline = '';
+        if (cs >= 65) headline = 'כסף מוסדי מוצב לעליות — קונוויקשן שורי גבוה';
+        else if (cs >= 55) headline = 'נטייה שורית — יותר כסף גדול בצד החיובי';
+        else if (cs >= 45) headline = 'שוק מפוצל — אין כיוון מוסדי ברור';
+        else if (cs >= 35) headline = 'נטייה דובית — לחץ מוסדי כלפי מטה';
+        else headline = 'כסף מוסדי מוצב לירידות — קונוויקשן דובי גבוה';
+
+        // Lines
+        const lines = [];
+
+        // Floor block signal
+        if (floorDir > 0) {
+          if (floorBearPct >= 70)
+            lines.push(`Floor Blocks דוביים בעיקר (${m.floorBear}/${floorDir}) — ${fmtM(m.floorPrem)} הלכו לפוטים`);
+          else if (floorBullPct >= 70)
+            lines.push(`Floor Blocks שוריים בעיקר (${m.floorBull}/${floorDir}) — ${fmtM(m.floorPrem)} הלכו לקולז`);
+          else
+            lines.push(`Floor Blocks מפוצלים (↑${m.floorBull} ↓${m.floorBear}) — אין קונוויקשן ברור`);
+        }
+
+        // Near-term
+        if (near <= 25) lines.push(`קצר-טווח (DTE≤21): לחץ דובי חזק מאוד — ${near.toFixed(0)}% שורי`);
+        else if (near <= 40) lines.push(`קצר-טווח (DTE≤21): דובי — ${near.toFixed(0)}% שורי`);
+        else if (near >= 75) lines.push(`קצר-טווח (DTE≤21): מומנטום שורי חזק — ${near.toFixed(0)}% שורי`);
+        else if (near >= 60) lines.push(`קצר-טווח (DTE≤21): שורי — ${near.toFixed(0)}% שורי`);
+        else lines.push(`קצר-טווח (DTE≤21): ניטרלי — ${near.toFixed(0)}% שורי`);
+
+        // Far-term
+        if (far <= 35) lines.push(`טווח בינוני (DTE>21): דובי — ${far.toFixed(0)}% שורי`);
+        else if (far >= 65) lines.push(`טווח בינוני (DTE>21): שורי — ${far.toFixed(0)}% שורי`);
+        else lines.push(`טווח בינוני (DTE>21): ניטרלי — ${far.toFixed(0)}% שורי`);
+
+        // ML structures
+        if (m.mlBear >= 2 && m.mlBear > m.mlBull)
+          lines.push(`${m.mlBear} מבני Spread דוביים מזוהים (${fmtM(m.mlBearPrem)})`);
+        else if (m.mlBull >= 2 && m.mlBull > m.mlBear)
+          lines.push(`${m.mlBull} מבני Spread שוריים מזוהים (${fmtM(m.mlBullPrem)})`);
+
+        // ISO
+        if (m.isoCount > 0) {
+          if (m.isoBull > m.isoBear) lines.push(`⚡ ISO Sweep שורי — ביצוע דחוף, כוונה ברורה`);
+          else if (m.isoBear > m.isoBull) lines.push(`⚡ ISO Sweep דובי — ביצוע דחוף, כוונה ברורה`);
+        }
+
+        return `<div class="card-conclusion" style="border-right-color:${borderColor}">
+          <div class="conclusion-headline" style="color:${borderColor}">${headline}</div>
+          ${lines.map(l => `<div class="conclusion-line">${l}</div>`).join('')}
+        </div>`;
+      })()}
+    `;
+    grid.appendChild(card);
+  });
+}
+
+// ── TEXT SUMMARY ──
+function generateTextSummary() {
+  const card = document.getElementById('text-summary-card');
+  const content = document.getElementById('text-summary-content');
+  const metrics = {};
+  ['SPY','QQQ','IWM'].forEach(sym => {
+    if (state.data[sym].length > 0) metrics[sym] = computeMetrics(state.data[sym]);
+  });
+  const available = Object.keys(metrics);
+  if (!available.length) return;
+
+  const weights = { SPY: 0.40, QQQ: 0.35, IWM: 0.25 };
+  let totalW = 0, weightedScore = 0;
+  available.forEach(sym => { weightedScore += metrics[sym].bullishPct * weights[sym]; totalW += weights[sym]; });
+  const overallScore = totalW > 0 ? weightedScore / totalW : 50;
+  const overallLbl = scoreLabel(overallScore);
+
+  function tagFor(pct) {
+    if (pct >= 60) return `<span class="tag-bull">שורי</span>`;
+    if (pct >= 52) return `<span class="tag-bull">שורי מתון</span>`;
+    if (pct >= 45) return `<span class="tag-neut">ניטרלי</span>`;
+    if (pct >= 38) return `<span class="tag-bear">דובי מתון</span>`;
+    return `<span class="tag-bear">דובי</span>`;
+  }
+
+  function describeIndex(sym) {
+    const m = metrics[sym];
+    if (!m) return '';
+    const lbl = scoreLabel(m.bullishPct);
+    const netStr = m.netFlow >= 0
+      ? `זרם נטו חיובי של <strong>+${fmtM(m.netFlow)}</strong>`
+      : `זרם נטו שלילי של <strong>${fmtM(m.netFlow)}</strong>`;
+    const smartTotal = m.smartBull + m.smartBear;
+    const smartStr = smartTotal === 0
+      ? `אין עסקאות "כסף חכם" (>$1M)`
+      : `${smartTotal} עסקאות "כסף חכם" (>$1M) — ${m.smartBull} שוריות, ${m.smartBear} דוביות`;
+    const putAskPct = m.putPrem > 0 ? (m.putAskPrem / m.putPrem * 100) : 0;
+    const putBidPct = m.putPrem > 0 ? (m.putBidPrem / m.putPrem * 100) : 0;
+    const putMidPct = m.putPrem > 0 ? (m.putMidPrem / m.putPrem * 100) : 0;
+    const putAction = `פוטים: <strong>${putAskPct.toFixed(0)}%</strong> נקנו (Ask) · <strong>${putBidPct.toFixed(0)}%</strong> נמכרו (Bid) · <strong>${putMidPct.toFixed(0)}%</strong> Mid`;
+    const floorNote = m.floorCount > 0
+      ? `📦 Floor Blocks: ${m.floorCount} עסקאות ${fmtM(m.floorPrem)} — ↑${m.floorBull} שוריות ↓${m.floorBear} דוביות`
+      : '📦 Floor Blocks: אין';
+    const isoStr = m.isoCount > 0 ? ` | ⚡ ISO: ${m.isoCount} (↑${m.isoBull} ↓${m.isoBear})` : '';
+    const mlDirStr = (m.mlBull + m.mlBear) > 0
+      ? ` | ML: ↑${m.mlBull} שוריים ↓${m.mlBear} דוביים`
+      : '';
+    const csLabel = m.convictionScore >= 65 ? 'שורי חזק' : m.convictionScore >= 55 ? 'שורי מתון' : m.convictionScore >= 45 ? 'ניטרלי' : m.convictionScore >= 35 ? 'דובי מתון' : 'דובי חזק';
+    const convictionNote = `🎯 קונוויקשן: <strong>${Math.round(m.convictionScore)}/100 — ${csLabel}</strong> | שבוע: ${m.nearScore.toFixed(0)}% שורי · טווח: ${m.farScore.toFixed(0)}% שורי`;
+    const dteDiff = m.avgBearDTE - m.avgBullDTE;
+    const dteNote = Math.abs(dteDiff) > 5
+      ? (dteDiff > 0 ? `הדוביים מסתכלים קדימה יותר (DTE ממוצע ${m.avgBearDTE.toFixed(0)}d vs ${m.avgBullDTE.toFixed(0)}d שורי)` : `השוריים מסתכלים קדימה יותר (DTE ממוצע ${m.avgBullDTE.toFixed(0)}d vs ${m.avgBearDTE.toFixed(0)}d דובי)`)
+      : `אופק זמן דומה לשני הצדדים (~${m.avgBullDTE.toFixed(0)}d)`;
+    const callNote = m.callBuyPrem > m.callSellPrem
+      ? `קניית קולז: ${fmtM(m.callBuyPrem)} (אגרסיבי)`
+      : `מכירת קולז: ${fmtM(m.callSellPrem)} (דפנסיבי)`;
+
+    const borderCol = lbl.color;
+    return `
+      <div class="summary-index-block" style="border-right-color:${borderCol}">
+        <div class="idx-title">
+          <span style="color:${borderCol};font-family:'DM Mono',monospace">${sym}</span>
+          ${tagFor(m.bullishPct)}
+          <span style="color:var(--subtle);font-size:12px;font-family:'DM Mono',monospace">$${m.lastPrice.toFixed(2)}</span>
+        </div>
+        <ul style="padding-right:18px;color:var(--subtle);font-size:13px;line-height:1.9">
+          <li>${netStr} — ${m.bullishPct.toFixed(1)}% מהזרם הכוונתי שורי</li>
+          <li>${putAction} | ${callNote}</li>
+          <li>${smartStr}</li>
+          <li>${floorNote}${isoStr}${mlDirStr}</li>
+          <li>${convictionNote}</li>
+          <li>${dteNote}</li>
+        </ul>
+      </div>`;
+  }
+
+  // Overall
+  const overallDesc = overallScore >= 65
+    ? 'השוק מציג <strong>סנטימנט שורי ברור</strong> — הזרם הכוונתי חיובי על פני שלושת המדדים.'
+    : overallScore >= 55
+    ? 'השוק מציג <strong>סנטימנט שורי מתון</strong> — רוב הזרם חיובי, אך ישנן הגנות משמעותיות.'
+    : overallScore >= 45
+    ? 'השוק <strong>ניטרלי</strong> — הזרם מפוצל, אין קונבינקשן ברור לכיוון.'
+    : overallScore >= 35
+    ? 'השוק מציג <strong>סנטימנט דובי מתון</strong> — קניית הגנות עולה על הסנטימנט החיובי.'
+    : 'השוק מציג <strong>סנטימנט דובי ברור</strong> — כסף חכם קונה הגנות באגרסיביות.';
+
+  // Strongest / weakest
+  const sorted = available.slice().sort((a,b) => metrics[b].bullishPct - metrics[a].bullishPct);
+  const strongest = sorted[0], weakest = sorted[sorted.length-1];
+  const relNote = available.length >= 2
+    ? `<strong>${strongest}</strong> הוא המדד החזק ביותר (${metrics[strongest].bullishPct.toFixed(1)}% שורי)${available.length >= 2 ? `, בעוד <strong>${weakest}</strong> מציג את הסנטימנט החלש ביותר (${metrics[weakest].bullishPct.toFixed(1)}%)` : ''}.`
+    : '';
+
+  // Key alert
+  const alerts = [];
+  available.forEach(sym => {
+    const m = metrics[sym];
+    if (m.putPressurePct > 70) alerts.push(`⚠️ <strong>${sym}</strong>: ${m.putPressurePct.toFixed(0)}% מהפוטים נקנו — לחץ הגנה גבוה מאוד`);
+    if (m.smartBear > m.smartBull && m.smartBear >= 5) alerts.push(`🔴 <strong>${sym}</strong>: כסף חכם דובי (${m.smartBear} עסקאות >$1M)`);
+    if (m.netFlow > 5e6) alerts.push(`🟢 <strong>${sym}</strong>: זרם נטו שורי חזק (+${fmtM(m.netFlow)})`);
+    if (m.sweepCount >= 30) alerts.push(`⚡ <strong>${sym}</strong>: ${m.sweepCount} סוויפים — קונבינקשן גבוה`);
+  });
+
+  const now = state.fileDate || new Date();
+  const dateStr = now.toLocaleDateString('he-IL', { day:'numeric', month:'long', year:'numeric' });
+
+  content.innerHTML = `
+    <div class="summary-overall">
+      🗓️ <strong>${dateStr}</strong> · ציון כולל: <strong style="color:${overallLbl.color}">${Math.round(overallScore)}/100 — ${overallLbl.text}</strong><br>
+      ${overallDesc} ${relNote}
+    </div>
+    <div class="summary-index-row">
+      ${available.map(sym => describeIndex(sym)).join('')}
+    </div>
+    ${alerts.length ? `<div class="summary-conclusion">
+      <strong>🔔 התראות מפתח:</strong><br>
+      ${alerts.map(a => `• ${a}`).join('<br>')}
+    </div>` : ''}
+  `;
+  card.style.display = 'block';
+}
+
+// ── TIMELINE ──
+function renderTimeline() {
+  const container = document.getElementById('timeline-container');
+
+  // Bucket by hour per symbol
+  const buckets = {}; // key: "HH" → { SPY: {bull, bear}, QQQ:..., IWM:... }
+  const hours = new Set();
+
+  state.allTrades.forEach(row => {
+    const timeStr = row['Time'] || '';
+    const match = timeStr.match(/(\d{2}):\d{2}/);
+    if (!match) return;
+    const hour = match[1];
+    hours.add(hour);
+    if (!buckets[hour]) buckets[hour] = {};
+    const sym = row['_symbol'];
+    if (!buckets[hour][sym]) buckets[hour][sym] = { bull: 0, bear: 0 };
+    const prem = parsePremium(row['Premium']);
+    const sentiment = classifySentiment(row['Type'], row['Side']);
+    if (sentiment === 'bullish') buckets[hour][sym].bull += prem;
+    else if (sentiment === 'bearish') buckets[hour][sym].bear += prem;
+  });
+
+  const sortedHours = Array.from(hours).sort();
+  if (sortedHours.length === 0) {
+    container.innerHTML = '<div class="no-data-msg">אין נתוני זמן להצגה</div>';
+    return;
+  }
+
+  const symbols = ['SPY','QQQ','IWM'];
+  const symColors = { SPY: '#3b9eff', QQQ: '#a78bfa', IWM: '#f59e0b' };
+
+  // Compute net per hour total
+  const netByHour = sortedHours.map(h => {
+    let totalBull = 0, totalBear = 0;
+    symbols.forEach(s => {
+      if (buckets[h] && buckets[h][s]) {
+        totalBull += buckets[h][s].bull;
+        totalBear += buckets[h][s].bear;
+      }
+    });
+    return { hour: h, bull: totalBull, bear: totalBear, net: totalBull - totalBear };
+  });
+
+  const maxVal = Math.max(...netByHour.map(d => Math.max(d.bull, d.bear)), 1);
+
+  const svgW = Math.max(600, sortedHours.length * 80);
+  const svgH = 220;
+  const padL = 50, padR = 20, padT = 20, padB = 40;
+  const chartW = svgW - padL - padR;
+  const chartH = svgH - padT - padB;
+  const barGroupW = chartW / sortedHours.length;
+  const barW = Math.min(30, barGroupW * 0.35);
+
+  let svgContent = `<svg class="tl-svg" viewBox="0 0 ${svgW} ${svgH}" style="height:${svgH}px">`;
+
+  // Grid lines
+  [0.25, 0.5, 0.75, 1.0].forEach(frac => {
+    const y = padT + chartH - frac * chartH;
+    const valM = (maxVal * frac / 1e6).toFixed(1);
+    svgContent += `<line x1="${padL}" y1="${y}" x2="${svgW - padR}" y2="${y}" stroke="rgba(90,122,148,0.2)" stroke-width="1"/>`;
+    svgContent += `<text class="tl-axis-label" x="${padL - 4}" y="${y + 3}">${valM}M</text>`;
+  });
+
+  // Baseline
+  const baseY = padT + chartH;
+  svgContent += `<line x1="${padL}" y1="${baseY}" x2="${svgW - padR}" y2="${baseY}" stroke="rgba(90,122,148,0.4)" stroke-width="1"/>`;
+
+  // Bars per hour
+  netByHour.forEach((d, i) => {
+    const cx = padL + i * barGroupW + barGroupW / 2;
+    const bullH = (d.bull / maxVal) * chartH;
+    const bearH = (d.bear / maxVal) * chartH;
+
+    // Bull bar (left of center)
+    if (d.bull > 0) {
+      svgContent += `<rect class="tl-bar-bullish" x="${cx - barW - 2}" y="${baseY - bullH}" width="${barW}" height="${bullH}" rx="2">
+        <title>שעה ${d.hour}:00 | שורי: ${fmtM(d.bull)}</title>
+      </rect>`;
+    }
+    // Bear bar (right of center)
+    if (d.bear > 0) {
+      svgContent += `<rect class="tl-bar-bearish" x="${cx + 2}" y="${baseY - bearH}" width="${barW}" height="${bearH}" rx="2">
+        <title>שעה ${d.hour}:00 | דובי: ${fmtM(d.bear)}</title>
+      </rect>`;
+    }
+
+    // Hour label
+    svgContent += `<text class="tl-label" x="${cx}" y="${baseY + 16}">${d.hour}:00</text>`;
+
+    // Net indicator dot
+    const netH = Math.abs(d.net) / maxVal * 10;
+    const dotColor = d.net >= 0 ? 'rgba(0,230,118,0.9)' : 'rgba(255,77,106,0.9)';
+    svgContent += `<circle cx="${cx}" cy="${baseY - 6}" r="3" fill="${dotColor}" opacity="0.7"/>`;
+  });
+
+  svgContent += '</svg>';
+
+  container.innerHTML = svgContent;
+}
+
+// ── INIT ──
+document.addEventListener('DOMContentLoaded', () => {
+  // Animate gauge to 0 on load
+  setTimeout(() => {
+    const fillEl = document.getElementById('gauge-fill');
+    if (fillEl) fillEl.style.strokeDashoffset = 283;
+  }, 100);
+});
+</script>
+</body>
+</html>
