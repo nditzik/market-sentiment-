@@ -2092,9 +2092,9 @@ async function autoLoadFromData() {
 
   for (const sym of symbols) {
     for (const { label, date } of dates) {
-      const url = `data/${sym}-options-flow-${label}.csv`;
+      const url = `data/${sym}-options-flow-${label}.csv?v=${Date.now()}`;
       try {
-        const res = await fetch(url);
+        const res = await fetch(url, { cache: 'no-store' });
         if (!res.ok) continue;
         const text = await res.text();
         Papa.parse(text, {
