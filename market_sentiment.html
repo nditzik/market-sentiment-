@@ -2076,6 +2076,50 @@ function renderTimeline() {
   container.innerHTML = svgContent;
 }
 
+// ── AUTO LOAD FROM data/ ──
+async function autoLoadFromData() {
+  const symbols = ['spy', 'qqq', 'iwm'];
+  const today = new Date();
+  const dates = [];
+  for (let i = 0; i < 10; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    dates.push({ label: `${mm}-${dd}-${yyyy}`, date: d });
+  }
+
+  for (const sym of symbols) {
+    for (const { label, date } of dates) {
+      const url = `data/${sym}-options-flow-${label}.csv`;
+      try {
+        const res = await fetch(url);
+        if (!res.ok) continue;
+        const text = await res.text();
+        Papa.parse(text, {
+          header: true,
+          skipEmptyLines: true,
+          complete: result => {
+            const SYM = sym.toUpperCase();
+            state.files[SYM] = { name: `${sym}-options-flow-${label}.csv` };
+            state.data[SYM] = result.data;
+            const [mm2, dd2, yyyy2] = label.split('-').map(Number);
+            const fd = new Date(yyyy2, mm2 - 1, dd2);
+            if (!state.fileDate || fd > state.fileDate) {
+              state.fileDate = fd;
+              updateDateBadge();
+            }
+            markChip(SYM);
+            checkAllLoaded();
+          }
+        });
+        break;
+      } catch(e) { /* try next date */ }
+    }
+  }
+}
+
 // ── INIT ──
 document.addEventListener('DOMContentLoaded', () => {
   // Animate gauge to 0 on load
@@ -2083,6 +2127,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const fillEl = document.getElementById('gauge-fill');
     if (fillEl) fillEl.style.strokeDashoffset = 283;
   }, 100);
+  // Auto load latest CSV files from data/
+  autoLoadFromData();
 });
 </script>
 </body>
