@@ -2118,6 +2118,12 @@ async function autoLoadFromData() {
       } catch(e) { /* try next date */ }
     }
   }
+
+  // Auto-analyze after all files loaded
+  const loaded = Object.values(state.files).filter(Boolean).length;
+  if (loaded > 0) {
+    setTimeout(() => buildDashboard(), 300);
+  }
 }
 
 // ── INIT ──
