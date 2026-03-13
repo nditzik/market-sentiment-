@@ -1227,9 +1227,29 @@ function classifyMLStructures(rows) {
 
     if (expiries.length > 1) {
       structType = 'Calendar'; direction = 'neutral';
+    } else if (!allPuts && !allCalls && legs.length === 2) {
+      const s0 = parseFloat(legs[0]['Strike']), s1 = parseFloat(legs[1]['Strike']);
+      const sz0 = parseInt(legs[0]['Size']), sz1 = parseInt(legs[1]['Size']);
+      const sameStrike = Math.abs(s0 - s1) < 0.01;
+      const sameSize = sz0 === sz1;
+      if (sameStrike && sameSize) {
+        const callLeg = legs.find(r => (r['Type']||'').toLowerCase() === 'call');
+        const putLeg  = legs.find(r => (r['Type']||'').toLowerCase() === 'put');
+        const callSide = (callLeg?.['Side']||'').toLowerCase();
+        const putSide  = (putLeg?.['Side']||'').toLowerCase();
+        if (callSide === 'ask' && putSide === 'bid') {
+          structType = 'Synthetic Long'; direction = 'bullish';
+        } else if (putSide === 'ask' && callSide === 'bid') {
+          structType = 'Synthetic Short'; direction = 'bearish';
+        } else {
+          structType = 'Strangle'; direction = 'neutral';
+        }
+      } else {
+        structType = 'Strangle'; direction = 'neutral';
+      }
     } else if (!allPuts && !allCalls) {
       const uSizes = [...new Set(sizes)];
-      structType = legs.length === 4 && uSizes.length === 1 ? 'Iron Condor' : legs.length === 2 ? 'Strangle' : 'Complex';
+      structType = legs.length === 4 && uSizes.length === 1 ? 'Iron Condor' : 'Complex';
       direction = 'neutral';
     } else if (legs.length === 3) {
       const sorted = [...sizes].sort((a,b) => a-b);
