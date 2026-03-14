@@ -1082,6 +1082,9 @@
       <div class="tl-legend">
         <div class="tl-legend-item"><div class="tl-legend-dot" style="background:rgba(0,230,118,0.7)"></div> זרם שורי</div>
         <div class="tl-legend-item"><div class="tl-legend-dot" style="background:rgba(255,77,106,0.7)"></div> זרם דובי</div>
+        <div class="tl-legend-item"><div class="tl-legend-dot" style="background:#3b9eff;border-radius:50%"></div> SPY</div>
+        <div class="tl-legend-item"><div class="tl-legend-dot" style="background:#a78bfa;border-radius:50%"></div> QQQ</div>
+        <div class="tl-legend-item"><div class="tl-legend-dot" style="background:#f59e0b;border-radius:50%"></div> IWM</div>
       </div>
       <div class="timeline-wrap">
         <div class="timeline-svg-container" id="timeline-container">
@@ -1484,11 +1487,11 @@ function computeMetrics(rows) {
 }
 
 function scoreLabel(score) {
-  if (score >= 65) return { text: 'שורי', color: 'var(--bullish)' };
-  if (score >= 55) return { text: 'שורי מתון', color: '#7bda9e' };
-  if (score >= 45) return { text: 'ניטרלי', color: 'var(--neutral)' };
+  if (score >= 65) return { text: 'שורי',      color: 'var(--bullish)' };
+  if (score >= 55) return { text: 'שורי מתון', color: '#f5c842' };     // gold — not fully bullish yet
+  if (score >= 45) return { text: 'ניטרלי',    color: 'var(--neutral)' };
   if (score >= 35) return { text: 'דובי מתון', color: '#ff8a9e' };
-  return { text: 'דובי', color: 'var(--bearish)' };
+  return             { text: 'דובי',      color: 'var(--bearish)' };
 }
 
 function fmtM(val) {
@@ -1644,30 +1647,39 @@ function renderIndexCards() {
       ? topML.map(s => `<span style="color:${s.direction === 'bullish' ? 'var(--bullish)' : 'var(--bearish)'}">${s.structType} ${fmtM(s.totalPrem)}</span>`).join(' · ')
       : `<span style="color:var(--subtle)">אין מבנים כיווניים</span>`;
 
-    // ── Conclusion box (compact) ──
+    // ── Conclusion box (2 lines: verdict + reason) ──
     const floorDir   = m.floorBull + m.floorBear;
     const borderColor= cs >= 60 ? 'var(--bullish)' : cs <= 40 ? 'var(--bearish)' : 'var(--neutral)';
-    let headline = cs >= 65 ? 'כסף מוסדי מוצב לעליות — קונוויקשן שורי גבוה'
-      : cs >= 55 ? 'נטייה שורית — יותר כסף גדול בצד החיובי'
-      : cs >= 45 ? 'שוק מפוצל — אין כיוון מוסדי ברור'
-      : cs >= 35 ? 'נטייה דובית — לחץ מוסדי כלפי מטה'
-      : 'כסף מוסדי מוצב לירידות — קונוויקשן דובי גבוה';
-    const lines = [];
+
+    // Verdict: what is the sentiment
+    let headline;
+    if (m.bullishPct >= 65 && cs >= 60)      headline = 'כסף מוסדי שורי — זרם וקונוויקשן מצביעים על עליות';
+    else if (m.bullishPct >= 55 && cs >= 55) headline = 'נטייה שורית — רוב הכסף הגדול בצד החיובי';
+    else if (m.bullishPct >= 55)             headline = 'זרם שורי, אך קונוויקשן מוסדי מעורב';
+    else if (m.bullishPct <= 35 && cs <= 40) headline = 'כסף מוסדי דובי — זרם וקונוויקשן מצביעים על ירידות';
+    else if (m.bullishPct <= 45 && cs <= 45) headline = 'נטייה דובית — לחץ כלפי מטה';
+    else                                     headline = 'שוק מפוצל — אין כיוון מוסדי חד-משמעי';
+
+    // Reason: why — pick the 2 most dominant signals
+    const reasons = [];
     if (floorDir > 0) {
       const fp = (m.floorBull / floorDir) * 100;
-      lines.push(fp >= 70
-        ? `Floor שורי בעיקר (${m.floorBull}/${floorDir}) — ${fmtM(m.floorPrem)}`
-        : fp <= 30
-        ? `Floor דובי בעיקר (${m.floorBear}/${floorDir}) — ${fmtM(m.floorPrem)}`
-        : `Floor מפוצל ↑${m.floorBull} ↓${m.floorBear}`);
+      if (fp >= 65)      reasons.push(`Floor Blocks שוריים (${m.floorBull}/${floorDir})`);
+      else if (fp <= 35) reasons.push(`Floor Blocks דוביים (${m.floorBear}/${floorDir})`);
     }
-    const nearLbl = m.nearScore >= 60 ? 'שורי' : m.nearScore <= 40 ? 'דובי' : 'ניטרלי';
-    const farLbl  = m.farScore  >= 60 ? 'שורי' : m.farScore  <= 40 ? 'דובי' : 'ניטרלי';
-    lines.push(`שבוע: ${nearLbl} (${m.nearScore.toFixed(0)}%) · טווח: ${farLbl} (${m.farScore.toFixed(0)}%)`);
     if (m.isoCount > 0)
-      lines.push(`⚡ ISO: ${m.isoCount} — ${m.isoBull > m.isoBear ? 'שורי' : 'דובי'}`);
+      reasons.push(`ISO ${m.isoBull > m.isoBear ? 'שורי' : 'דובי'} (${m.isoCount})`);
+    if (m.putPressurePct > 68)
+      reasons.push(`לחץ פוטים גבוה (${m.putPressurePct.toFixed(0)}%)`);
+    else if (m.putPressurePct < 32)
+      reasons.push(`לחץ פוטים נמוך — אין הגנות (${m.putPressurePct.toFixed(0)}%)`);
     if (m.mlBull + m.mlBear >= 2)
-      lines.push(`ML: ↑${m.mlBull} שוריים · ↓${m.mlBear} דוביים`);
+      reasons.push(`ML: ↑${m.mlBull} שוריים ↓${m.mlBear} דוביים`);
+    if (reasons.length === 0) {
+      const nearLbl = m.nearScore >= 60 ? 'שורי' : m.nearScore <= 40 ? 'דובי' : 'ניטרלי';
+      reasons.push(`קצר-טווח ${nearLbl} (${m.nearScore.toFixed(0)}%)`);
+    }
+    const lines = [reasons.slice(0, 3).join(' · ')];
 
     const card = document.createElement('div');
     card.className = 'card index-card fade-in';
@@ -1715,7 +1727,7 @@ function renderIndexCards() {
           <span class="cmetric-sub">(↑${m.smartBull} ↓${m.smartBear})</span>
         </div>` : ''}
         <div class="cmetric-row">
-          <span class="cmetric-label">📦 Floor Blocks</span>
+          <span class="cmetric-label" title="Floor Blocks — עסקאות מוסדיות גדולות שמבוצעות על רצפת הבורסה (SLFT/MLFT). סימן לכסף חכם עם כוונה מוצהרת.">📦 Floor <span style="font-size:9px;color:var(--dim);cursor:help">(?)</span></span>
           <span class="cmetric-value">${m.floorCount}</span>
           <span class="cmetric-sub">
             <span class="text-bullish">↑${m.floorBull}</span>
@@ -1724,7 +1736,7 @@ function renderIndexCards() {
           </span>
         </div>
         ${m.isoCount > 0 ? `<div class="cmetric-row">
-          <span class="cmetric-label">⚡ ISO Sweeps</span>
+          <span class="cmetric-label" title="ISO Sweeps — ביצוע דחוף 'מצא לי מחיר עכשיו'. סימן לכוונה מהירה — כסף שחייב להיכנס.">⚡ ISO <span style="font-size:9px;color:var(--dim);cursor:help">(?)</span></span>
           <span class="cmetric-value">${m.isoCount}</span>
           <span class="cmetric-sub">
             <span class="text-bullish">↑${m.isoBull}</span>
@@ -1754,7 +1766,7 @@ function renderIndexCards() {
           </div>
         </div>
         <div class="cmetric-row">
-          <span class="cmetric-label">ML מבנים</span>
+          <span class="cmetric-label" title="Multi-Leg — עסקה עם שתי רגליים ומעלה: Spread, Synthetic, Butterfly. מסמן פוזיציה מכוונת של כסף מוסדי.">🔀 ML <span style="font-size:9px;color:var(--dim);cursor:help">(?)</span></span>
           <span style="font-size:11px;line-height:1.7">${mlHtml}</span>
         </div>
       </div>
@@ -1870,9 +1882,11 @@ function generateTextSummary() {
 function renderTimeline() {
   const container = document.getElementById('timeline-container');
 
-  // Bucket by hour per symbol
-  const buckets = {}; // key: "HH" → { SPY: {bull, bear}, QQQ:..., IWM:... }
-  const hours = new Set();
+  const buckets     = {}; // hour → { sym: { bull, bear } }
+  const priceBuckets= {}; // sym → hour → [prices]
+  const hours       = new Set();
+  const symbols     = ['SPY','QQQ','IWM'];
+  const symColors   = { SPY: '#3b9eff', QQQ: '#a78bfa', IWM: '#f59e0b' };
 
   state.allTrades.forEach(row => {
     const timeStr = row['Time'] || '';
@@ -1880,13 +1894,23 @@ function renderTimeline() {
     if (!match) return;
     const hour = match[1];
     hours.add(hour);
+
+    // Flow buckets
     if (!buckets[hour]) buckets[hour] = {};
     const sym = row['_symbol'];
     if (!buckets[hour][sym]) buckets[hour][sym] = { bull: 0, bear: 0 };
     const prem = parsePremium(row['Premium']);
-    const sentiment = classifySentiment(row['Type'], row['Side']);
-    if (sentiment === 'bullish') buckets[hour][sym].bull += prem;
-    else if (sentiment === 'bearish') buckets[hour][sym].bear += prem;
+    const sent = classifySentiment(row['Type'], row['Side']);
+    if (sent === 'bullish') buckets[hour][sym].bull += prem;
+    else if (sent === 'bearish') buckets[hour][sym].bear += prem;
+
+    // Price buckets (Price~ column = underlying index price)
+    const price = parsePrice(row['Price~']);
+    if (price > 100) { // sanity check — index prices are > 100
+      if (!priceBuckets[sym]) priceBuckets[sym] = {};
+      if (!priceBuckets[sym][hour]) priceBuckets[sym][hour] = [];
+      priceBuckets[sym][hour].push(price);
+    }
   });
 
   const sortedHours = Array.from(hours).sort();
@@ -1895,85 +1919,140 @@ function renderTimeline() {
     return;
   }
 
-  const symbols = ['SPY','QQQ','IWM'];
-  const symColors = { SPY: '#3b9eff', QQQ: '#a78bfa', IWM: '#f59e0b' };
-
-  // Compute net per hour total
-  const netByHour = sortedHours.map(h => {
-    let totalBull = 0, totalBear = 0;
-    symbols.forEach(s => {
-      if (buckets[h] && buckets[h][s]) {
-        totalBull += buckets[h][s].bull;
-        totalBear += buckets[h][s].bear;
-      }
+  // Hourly average price per symbol
+  const hourlyPrices = {}; // sym → array indexed by sortedHours
+  symbols.forEach(s => {
+    hourlyPrices[s] = sortedHours.map(h => {
+      const arr = priceBuckets[s]?.[h];
+      if (!arr || arr.length === 0) return null;
+      return arr.reduce((a,b) => a + b, 0) / arr.length;
     });
-    return { hour: h, bull: totalBull, bear: totalBear, net: totalBull - totalBear };
   });
 
-  const maxVal  = Math.max(...netByHour.map(d => Math.max(d.bull, d.bear)), 1);
+  // Net flow per hour
+  const netByHour = sortedHours.map(h => {
+    let bull = 0, bear = 0;
+    symbols.forEach(s => {
+      if (buckets[h]?.[s]) { bull += buckets[h][s].bull; bear += buckets[h][s].bear; }
+    });
+    return { hour: h, bull, bear, net: bull - bear };
+  });
+
+  const maxVal   = Math.max(...netByHour.map(d => Math.max(d.bull, d.bear)), 1);
   const meanBull = netByHour.reduce((s,d) => s + d.bull, 0) / (netByHour.length || 1);
   const meanBear = netByHour.reduce((s,d) => s + d.bear, 0) / (netByHour.length || 1);
 
-  const svgW = Math.max(600, sortedHours.length * 80);
-  const svgH = 220;
-  const padL = 50, padR = 20, padT = 20, padB = 40;
-  const chartW = svgW - padL - padR;
-  const chartH = svgH - padT - padB;
+  // Layout
+  const svgW      = Math.max(640, sortedHours.length * 80);
+  const padL      = 56, padR = 28, padT = 16, padB = 36;
+  const priceH    = 100; // price section height
+  const sepGap    = 14;  // gap between price and flow
+  const flowH     = 180; // flow bars section height
+  const svgH      = padT + priceH + sepGap + flowH + padB;
+  const chartW    = svgW - padL - padR;
   const barGroupW = chartW / sortedHours.length;
-  const barW = Math.min(30, barGroupW * 0.35);
+  const barW      = Math.min(28, barGroupW * 0.35);
+  const barBaseY  = padT + priceH + sepGap + flowH;
+  const priceTopY = padT;
 
-  let svgContent = `<svg class="tl-svg" viewBox="0 0 ${svgW} ${svgH}" style="height:${svgH}px">`;
+  let svg = `<svg class="tl-svg" viewBox="0 0 ${svgW} ${svgH}" style="height:${svgH}px;width:100%">`;
 
-  // Grid lines
+  // ── Price lines (upper section) ──
+  // Check if we have price data
+  const hasPrice = symbols.some(s => hourlyPrices[s].some(p => p !== null));
+  if (hasPrice) {
+    svg += `<text style="font-size:9px;fill:var(--subtle);font-family:'DM Mono',monospace" x="${padL}" y="${priceTopY + 10}">מחיר</text>`;
+
+    symbols.forEach(s => {
+      const pts = hourlyPrices[s];
+      const valid = pts.filter(p => p !== null);
+      if (valid.length === 0) return;
+
+      const minP  = Math.min(...valid);
+      const maxP  = Math.max(...valid);
+      const rangeP= maxP - minP || 1;
+
+      // Build point list
+      const xyPts = sortedHours.map((h, i) => {
+        const p = pts[i];
+        if (p === null) return null;
+        const x = padL + i * barGroupW + barGroupW / 2;
+        const y = priceTopY + 14 + (priceH - 20) * (1 - (p - minP) / rangeP);
+        return { x, y, p };
+      });
+
+      // Polyline path (skip nulls)
+      let pathD = '', first = true;
+      xyPts.forEach(pt => {
+        if (!pt) { first = true; return; }
+        pathD += first ? `M ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}` : ` L ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`;
+        first = false;
+      });
+      if (pathD) {
+        svg += `<path d="${pathD}" fill="none" stroke="${symColors[s]}" stroke-width="2" stroke-linejoin="round" opacity="0.85"/>`;
+        // Dots
+        xyPts.forEach(pt => {
+          if (!pt) return;
+          svg += `<circle cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="3" fill="${symColors[s]}" opacity="0.9"><title>${s} $${pt.p.toFixed(2)}</title></circle>`;
+        });
+        // Label at last point
+        const last = xyPts.filter(p => p !== null).pop();
+        if (last) svg += `<text x="${(last.x + 5).toFixed(1)}" y="${(last.y + 4).toFixed(1)}" style="font-size:10px;fill:${symColors[s]};font-family:'DM Mono',monospace;font-weight:600">${s}</text>`;
+      }
+    });
+
+    // Legend (color squares + symbol name)
+    let lx = padL;
+    symbols.forEach(s => {
+      const valid = hourlyPrices[s].filter(p => p !== null);
+      if (valid.length === 0) return;
+      const last = valid[valid.length - 1];
+      svg += `<rect x="${lx}" y="${priceTopY + priceH - 14}" width="8" height="8" rx="2" fill="${symColors[s]}"/>`;
+      svg += `<text x="${lx + 11}" y="${priceTopY + priceH - 7}" style="font-size:10px;fill:${symColors[s]};font-family:'DM Mono',monospace">$${last.toFixed(2)}</text>`;
+      lx += 80;
+    });
+  }
+
+  // Separator line between price and flow
+  const sepY = padT + priceH + sepGap / 2;
+  svg += `<line x1="${padL}" y1="${sepY}" x2="${svgW - padR}" y2="${sepY}" stroke="rgba(90,122,148,0.25)" stroke-width="1" stroke-dasharray="4,4"/>`;
+
+  // ── Flow bars (lower section) ──
   [0.25, 0.5, 0.75, 1.0].forEach(frac => {
-    const y = padT + chartH - frac * chartH;
+    const y    = barBaseY - frac * flowH;
     const valM = (maxVal * frac / 1e6).toFixed(1);
-    svgContent += `<line x1="${padL}" y1="${y}" x2="${svgW - padR}" y2="${y}" stroke="rgba(90,122,148,0.2)" stroke-width="1"/>`;
-    svgContent += `<text class="tl-axis-label" x="${padL - 4}" y="${y + 3}">${valM}M</text>`;
+    svg += `<line x1="${padL}" y1="${y}" x2="${svgW - padR}" y2="${y}" stroke="rgba(90,122,148,0.18)" stroke-width="1"/>`;
+    svg += `<text class="tl-axis-label" x="${padL - 4}" y="${y + 3}">${valM}M</text>`;
   });
+  svg += `<line x1="${padL}" y1="${barBaseY}" x2="${svgW - padR}" y2="${barBaseY}" stroke="rgba(90,122,148,0.4)" stroke-width="1"/>`;
 
-  // Baseline
-  const baseY = padT + chartH;
-  svgContent += `<line x1="${padL}" y1="${baseY}" x2="${svgW - padR}" y2="${baseY}" stroke="rgba(90,122,148,0.4)" stroke-width="1"/>`;
-
-  // Bars per hour
   netByHour.forEach((d, i) => {
-    const cx = padL + i * barGroupW + barGroupW / 2;
-    const bullH = (d.bull / maxVal) * chartH;
-    const bearH = (d.bear / maxVal) * chartH;
-
+    const cx    = padL + i * barGroupW + barGroupW / 2;
+    const bullH = (d.bull / maxVal) * flowH;
+    const bearH = (d.bear / maxVal) * flowH;
     const isBullSpike = d.bull > 0 && d.bull > meanBull * 2.2;
     const isBearSpike = d.bear > 0 && d.bear > meanBear * 2.2;
 
-    // Bull bar (left of center)
     if (d.bull > 0) {
       const cls = isBullSpike ? 'tl-spike-bull' : 'tl-bar-bullish';
-      svgContent += `<rect class="${cls}" x="${cx - barW - 2}" y="${baseY - bullH}" width="${barW}" height="${bullH}" rx="2">
-        <title>שעה ${d.hour}:00 | שורי: ${fmtM(d.bull)}${isBullSpike ? ' ⚡ שיא' : ''}</title>
-      </rect>`;
-      if (isBullSpike) svgContent += `<text style="font-size:9px;fill:var(--bullish);font-family:'DM Mono',monospace" text-anchor="middle" x="${cx - barW/2 - 2}" y="${baseY - bullH - 4}">⚡</text>`;
+      svg += `<rect class="${cls}" x="${(cx - barW - 2).toFixed(1)}" y="${(barBaseY - bullH).toFixed(1)}" width="${barW}" height="${bullH.toFixed(1)}" rx="2"><title>שעה ${d.hour}:00 | שורי: ${fmtM(d.bull)}${isBullSpike ? ' ⚡ שיא' : ''}</title></rect>`;
+      if (isBullSpike) svg += `<text style="font-size:9px;fill:var(--bullish)" text-anchor="middle" x="${cx - barW/2 - 2}" y="${(barBaseY - bullH - 4).toFixed(1)}">⚡</text>`;
     }
-    // Bear bar (right of center)
     if (d.bear > 0) {
       const cls = isBearSpike ? 'tl-spike-bear' : 'tl-bar-bearish';
-      svgContent += `<rect class="${cls}" x="${cx + 2}" y="${baseY - bearH}" width="${barW}" height="${bearH}" rx="2">
-        <title>שעה ${d.hour}:00 | דובי: ${fmtM(d.bear)}${isBearSpike ? ' ⚡ שיא' : ''}</title>
-      </rect>`;
-      if (isBearSpike) svgContent += `<text style="font-size:9px;fill:var(--bearish);font-family:'DM Mono',monospace" text-anchor="middle" x="${cx + barW/2 + 2}" y="${baseY - bearH - 4}">⚡</text>`;
+      svg += `<rect class="${cls}" x="${(cx + 2).toFixed(1)}" y="${(barBaseY - bearH).toFixed(1)}" width="${barW}" height="${bearH.toFixed(1)}" rx="2"><title>שעה ${d.hour}:00 | דובי: ${fmtM(d.bear)}${isBearSpike ? ' ⚡ שיא' : ''}</title></rect>`;
+      if (isBearSpike) svg += `<text style="font-size:9px;fill:var(--bearish)" text-anchor="middle" x="${cx + barW/2 + 2}" y="${(barBaseY - bearH - 4).toFixed(1)}">⚡</text>`;
     }
 
     // Hour label
-    svgContent += `<text class="tl-label" x="${cx}" y="${baseY + 16}">${d.hour}:00</text>`;
-
-    // Net indicator dot
-    const netH = Math.abs(d.net) / maxVal * 10;
+    svg += `<text class="tl-label" x="${cx.toFixed(1)}" y="${barBaseY + 16}">${d.hour}:00</text>`;
+    // Net dot
     const dotColor = d.net >= 0 ? 'rgba(0,230,118,0.9)' : 'rgba(255,77,106,0.9)';
-    svgContent += `<circle cx="${cx}" cy="${baseY - 6}" r="3" fill="${dotColor}" opacity="0.7"/>`;
+    svg += `<circle cx="${cx.toFixed(1)}" cy="${(barBaseY - 5).toFixed(1)}" r="3" fill="${dotColor}" opacity="0.7"/>`;
   });
 
-  svgContent += '</svg>';
-
-  container.innerHTML = svgContent;
+  svg += '</svg>';
+  container.innerHTML = svg;
 }
 
 // ── AUTO LOAD FROM data/ ──
