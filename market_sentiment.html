@@ -958,6 +958,47 @@
     color: var(--subtle);
     font-size: 13px;
   }
+
+  /* ── DIRECTION PANEL (replaces gauge) ── */
+  .direction-hero {
+    display: flex; align-items: center; gap: 20px;
+    padding: 12px 0 20px;
+  }
+  .direction-arrow { font-size: 44px; font-weight: 700; line-height: 1; }
+  .direction-label { font-size: 28px; font-weight: 700; line-height: 1.1; }
+  .direction-sub { font-size: 13px; color: var(--subtle); margin-top: 5px; line-height: 1.8; }
+  .direction-delta { font-family: 'DM Mono', monospace; font-size: 13px; margin-top: 5px; }
+  .index-score-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 0; border-top: 1px solid var(--border);
+  }
+  .isr-sym { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 700; width: 40px; color: var(--accent); flex-shrink: 0; }
+  .isr-bar-wrap { flex: 1; height: 10px; background: var(--dim); border-radius: 5px; overflow: hidden; position: relative; }
+  .isr-bar { height: 100%; border-radius: 5px; position: absolute; right: 0; transition: width 1s cubic-bezier(0.4,0,0.2,1); }
+  .isr-pct { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 700; width: 42px; text-align: left; flex-shrink: 0; }
+  .isr-conv { font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(255,255,255,0.05); font-family: 'DM Mono', monospace; flex-shrink: 0; min-width: 64px; text-align: center; }
+  .isr-gap { font-size: 11px; min-width: 88px; text-align: center; flex-shrink: 0; }
+
+  /* ── INSIGHT ROWS (text summary) ── */
+  .insight-row { padding: 10px 14px; border-radius: 8px; font-size: 13.5px; line-height: 1.75; }
+  .insight-main  { background: rgba(59,158,255,0.07);  border-right: 3px solid var(--accent);  }
+  .insight-diverg{ background: rgba(245,166,35,0.07);  border-right: 3px solid var(--neutral); }
+  .insight-risk  { background: rgba(255,77,106,0.08);  border-right: 3px solid var(--bearish); }
+  .insight-ok    { background: rgba(0,230,118,0.07);   border-right: 3px solid var(--bullish); }
+
+  /* ── COMPACT METRIC ROWS (index cards) ── */
+  .cmetric-group { display: flex; flex-direction: column; gap: 8px; }
+  .cmetric-row   { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .cmetric-label { font-size: 11px; color: var(--subtle); min-width: 100px; flex-shrink: 0; }
+  .cmetric-value { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500; }
+  .cmetric-sub   { font-size: 11px; color: var(--subtle); }
+  .cmetric-2col  { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; }
+  .cmetric-2col-item .cl { font-size: 11px; color: var(--subtle); margin-bottom: 2px; }
+  .cmetric-2col-item .cv { font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 600; }
+
+  /* ── TIMELINE SPIKES ── */
+  .tl-spike-bull { fill: var(--bullish); }
+  .tl-spike-bear { fill: var(--bearish); }
 </style>
 </head>
 <body>
@@ -1014,26 +1055,8 @@
     <!-- MARKET SCORE -->
     <div class="card">
       <div class="card-title">ציון סנטימנט כולל</div>
-      <div class="score-card">
-        <div class="score-gauge-wrap">
-          <svg class="gauge-svg" viewBox="0 0 220 130" id="gauge-svg">
-            <path class="gauge-track" d="M 20 110 A 90 90 0 0 1 200 110" />
-            <path class="gauge-fill" id="gauge-fill"
-              d="M 20 110 A 90 90 0 0 1 200 110"
-              stroke-dasharray="283"
-              stroke-dashoffset="283"
-              stroke="var(--bullish)" />
-            <text class="gauge-score-text" id="gauge-score-text" x="110" y="95">--</text>
-            <text class="gauge-label-text" x="110" y="120" id="gauge-label-text">ממתין לנתונים</text>
-            <text class="gauge-label-text" x="20" y="126" style="text-anchor:middle;font-size:9px;">דובי</text>
-            <text class="gauge-label-text" x="200" y="126" style="text-anchor:middle;font-size:9px;">שורי</text>
-          </svg>
-          <div class="sentiment-label" id="sentiment-label" style="color:var(--subtle)">—</div>
-        </div>
-        <div class="score-inputs" id="score-inputs">
-          <div style="color:var(--subtle);font-size:13px;text-align:center;padding:20px 0;">ממתין לטעינת נתונים...</div>
-        </div>
-        <div class="dual-score-panel" id="dual-score-panel" style="display:none"></div>
+      <div id="score-direction-panel">
+        <div style="color:var(--subtle);font-size:13px;padding:20px;text-align:center">ממתין לטעינת נתונים...</div>
       </div>
     </div>
 
@@ -1208,8 +1231,17 @@ function classifyMLStructures(rows) {
     if (!code.startsWith('ML') && !code.startsWith('MF') && !code.startsWith('MA')) return;
     const time = (row['Time'] || '').trim();
     if (!time) return;
-    if (!groups[time]) groups[time] = [];
-    groups[time].push(row);
+    // Group by 5-second bucket to catch near-simultaneous multi-leg orders
+    const parts = time.split(':').map(Number);
+    let bucket;
+    if (parts.length >= 2) {
+      const secs = parts[0] * 3600 + parts[1] * 60 + (parts[2] || 0);
+      bucket = Math.floor(secs / 5) * 5; // 5-second window
+    } else {
+      bucket = time; // fallback: use raw string
+    }
+    if (!groups[bucket]) groups[bucket] = [];
+    groups[bucket].push(row);
   });
 
   const mlResult = { bullish: 0, bearish: 0, neutral: 0, bullishPrem: 0, bearishPrem: 0, structures: [] };
@@ -1490,14 +1522,14 @@ function buildDashboard() {
   document.getElementById('dashboard-section').classList.add('fade-in');
 }
 
-// ── GAUGE ──
+// ── DIRECTION PANEL (replaces gauge) ──
 function renderGauge() {
   const weights = { SPY: 0.40, QQQ: 0.35, IWM: 0.25 };
   let weightedScore = 0, weightedConviction = 0, totalWeight = 0;
   const inputs = [];
 
   ['SPY','QQQ','IWM'].forEach(sym => {
-    if (state.data[sym].length === 0) return;
+    if (!state.data[sym] || state.data[sym].length === 0) return;
     const m = computeMetrics(state.data[sym]);
     const w = weights[sym];
     weightedScore += m.bullishPct * w;
@@ -1506,77 +1538,76 @@ function renderGauge() {
     inputs.push({ sym, pct: m.bullishPct, conv: m.convictionScore, w });
   });
 
-  const finalScore = totalWeight > 0 ? weightedScore / totalWeight : 50;
+  if (!inputs.length) return;
+
+  const finalScore      = totalWeight > 0 ? weightedScore      / totalWeight : 50;
   const finalConviction = totalWeight > 0 ? weightedConviction / totalWeight : 50;
   const lbl = scoreLabel(finalScore);
 
-  // Gauge arc
-  const pct = Math.max(0, Math.min(100, finalScore));
-  const offset = 283 - (pct / 100) * 283;
-  const fillEl = document.getElementById('gauge-fill');
-  fillEl.style.strokeDashoffset = offset;
-  fillEl.style.stroke = lbl.color;
-  document.getElementById('gauge-score-text').textContent = Math.round(finalScore);
-  document.getElementById('gauge-label-text').textContent = '';
-  document.getElementById('sentiment-label').textContent = lbl.text;
-  document.getElementById('sentiment-label').style.color = lbl.color;
+  // ── localStorage: day-over-day delta ──
+  const fileDate  = state.fileDate || new Date();
+  const dateKey   = fileDate.toISOString().slice(0, 10);
+  const prevDate  = new Date(fileDate); prevDate.setDate(prevDate.getDate() - 1);
+  const prevKey   = prevDate.toISOString().slice(0, 10);
+  const prevScore = parseFloat(localStorage.getItem('sent_' + prevKey));
+  localStorage.setItem('sent_' + dateKey, Math.round(finalScore));
+  const delta       = !isNaN(prevScore) ? Math.round(finalScore) - prevScore : null;
+  const deltaStr    = delta === null ? '' :
+    delta > 0  ? `↑ +${delta} vs אתמול` :
+    delta < 0  ? `↓ ${delta} vs אתמול`  : '= ללא שינוי vs אתמול';
+  const deltaColor  = delta > 0 ? 'var(--bullish)' : delta < 0 ? 'var(--bearish)' : 'var(--subtle)';
 
-  // Input bars
-  const container = document.getElementById('score-inputs');
-  container.innerHTML = inputs.map(inp => `
-    <div class="score-input-row">
-      <div class="score-input-symbol">${inp.sym}</div>
-      <div class="score-input-bar-wrap">
-        <div class="score-input-bar" style="width:${inp.pct.toFixed(1)}%;background:${scoreLabel(inp.pct).color}"></div>
-      </div>
-      <div class="score-input-val mono">${inp.pct.toFixed(1)}%</div>
-      <div class="score-input-weight">${(inp.w * 100).toFixed(0)}%</div>
-    </div>
-  `).join('');
+  // ── Direction arrow ──
+  const dirArrow = finalScore >= 55 ? '▲' : finalScore <= 45 ? '▼' : '—';
 
-  // Per-symbol dual score panel
-  const panel = document.getElementById('dual-score-panel');
-  if (!panel) return;
-  if (inputs.length === 0) { panel.style.display = 'none'; return; }
-  panel.style.display = 'block';
+  // ── Overall conviction gap ──
+  const overallGap = finalConviction - finalScore;
+  const gapColor   = Math.abs(overallGap) < 5 ? 'var(--subtle)' : overallGap > 0 ? 'var(--bullish)' : 'var(--bearish)';
+  const gapStr     = Math.abs(overallGap) < 5 ? 'מוסדי תואם זרם'
+    : overallGap > 0 ? `מוסדי שורי יותר (+${overallGap.toFixed(0)})`
+    : `מוסדי דובי יותר (${overallGap.toFixed(0)})`;
 
-  const symRows = inputs.map(inp => {
-    const gc = scoreLabel(inp.pct).color;
-    const gl = scoreLabel(inp.pct).text;
+  // ── Per-index rows ──
+  const rowsHtml = inputs.map(inp => {
+    const lc = scoreLabel(inp.pct).color;
     const cc = scoreLabel(inp.conv).color;
-    const cl = scoreLabel(inp.conv).text;
     const gap = inp.conv - inp.pct;
-    const gapAbs = Math.abs(gap);
-    const gapColor = gapAbs < 5 ? 'var(--subtle)' : gapAbs < 15 ? 'var(--neutral)' : gap > 0 ? 'var(--bullish)' : 'var(--bearish)';
-    const gapArrow = gapAbs < 5 ? '↔' : gap > 0 ? '↑' : '↓';
-    const gapNote = gapAbs < 5 ? 'תואם' : gap > 0 ? 'מוסדי שורי יותר' : 'מוסדי דובי יותר';
+    const gAbs = Math.abs(gap);
+    const gc   = gAbs < 5 ? 'var(--subtle)' : gap > 0 ? 'var(--bullish)' : 'var(--bearish)';
+    const gStr = gAbs < 5 ? '↔ תואם' : gap > 0 ? `↑ +${gAbs.toFixed(0)} מוסדי` : `↓ -${gAbs.toFixed(0)} מוסדי`;
     return `
-      <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--border)">
-        <div style="min-width:36px;font-size:12px;font-weight:700;color:var(--text);font-family:'DM Mono',monospace">${inp.sym}</div>
-        <div style="flex:1;text-align:center">
-          <div style="font-size:18px;font-weight:700;color:${gc};font-family:'DM Mono',monospace">${Math.round(inp.pct)}</div>
-          <div style="font-size:10px;color:${gc};margin-top:2px">${gl}</div>
-        </div>
-        <div style="min-width:70px;text-align:center">
-          <div style="font-size:18px;color:${gapColor}">${gapArrow}</div>
-          <div style="font-size:12px;font-weight:700;color:${gapColor};font-family:'DM Mono',monospace">${gapAbs.toFixed(0)}</div>
-          <div style="font-size:9px;color:var(--subtle);margin-top:1px">${gapNote}</div>
-        </div>
-        <div style="flex:1;text-align:center">
-          <div style="font-size:18px;font-weight:700;color:${cc};font-family:'DM Mono',monospace">${Math.round(inp.conv)}</div>
-          <div style="font-size:10px;color:${cc};margin-top:2px">${cl}</div>
-        </div>
-      </div>`;
+    <div class="index-score-row">
+      <div class="isr-sym">${inp.sym}</div>
+      <div class="isr-bar-wrap"><div class="isr-bar" style="width:${inp.pct.toFixed(1)}%;background:${lc}"></div></div>
+      <div class="isr-pct" style="color:${lc}">${inp.pct.toFixed(0)}%</div>
+      <div class="isr-conv" style="color:${cc};border:1px solid ${cc}44">Conv ${Math.round(inp.conv)}</div>
+      <div class="isr-gap" style="color:${gc}">${gStr}</div>
+    </div>`;
   }).join('');
 
-  panel.innerHTML = `
-    <div style="display:flex;gap:10px;padding-bottom:4px">
-      <div style="min-width:36px"></div>
-      <div style="flex:1;text-align:center;font-size:10px;color:var(--subtle)">זרם כללי</div>
-      <div style="min-width:70px;text-align:center;font-size:10px;color:var(--subtle)">פער</div>
-      <div style="flex:1;text-align:center;font-size:10px;color:var(--subtle)">קונוויקשן מוסדי</div>
+  document.getElementById('score-direction-panel').innerHTML = `
+    <div class="direction-hero">
+      <div class="direction-arrow" style="color:${lbl.color}">${dirArrow}</div>
+      <div>
+        <div class="direction-label" style="color:${lbl.color}">${lbl.text}</div>
+        <div class="direction-sub">
+          זרם כולל <strong style="color:${lbl.color}">${Math.round(finalScore)}%</strong> שורי
+          &nbsp;·&nbsp; קונוויקשן <strong style="color:${scoreLabel(finalConviction).color}">${Math.round(finalConviction)}</strong>
+          &nbsp;·&nbsp; <span style="color:${gapColor}">${gapStr}</span>
+        </div>
+        ${deltaStr ? `<div class="direction-delta" style="color:${deltaColor}">${deltaStr}</div>` : ''}
+      </div>
     </div>
-    ${symRows}
+    <div>
+      <div style="display:flex;gap:10px;padding:0 0 4px;font-size:10px;color:var(--subtle)">
+        <div style="width:40px"></div>
+        <div style="flex:1;padding-left:6px;text-align:right">זרם כיווני</div>
+        <div style="width:42px"></div>
+        <div style="width:80px;text-align:center">קונוויקשן</div>
+        <div style="width:96px;text-align:center">פער מוסדי</div>
+      </div>
+      ${rowsHtml}
+    </div>
   `;
 }
 
@@ -1587,33 +1618,68 @@ function renderIndexCards() {
 
   ['SPY','QQQ','IWM'].forEach(sym => {
     const rows = state.data[sym];
-    if (rows.length === 0) return;
+    if (!rows || rows.length === 0) return;
     const m = computeMetrics(rows);
     const lbl = scoreLabel(m.bullishPct);
 
-    const putPressColor = m.putPressurePct > 65 ? 'var(--bearish)' : m.putPressurePct < 35 ? 'var(--bullish)' : 'var(--neutral)';
-    const netColor = m.netFlow >= 0 ? 'var(--bullish)' : 'var(--bearish)';
-    const smartDir = m.smartBull >= m.smartBear ? '↑ שורי' : '↓ דובי';
-    const smartColor = m.smartBull >= m.smartBear ? 'var(--bullish)' : 'var(--bearish)';
-    const bullW = m.bullishPrem + m.bearishPrem > 0 ? (m.bullishPrem / (m.bullishPrem + m.bearishPrem)) * 100 : 50;
-    const callW = m.callPrem + m.putPrem > 0 ? (m.callPrem / (m.callPrem + m.putPrem)) * 100 : 50;
+    const dirArrow     = m.bullishPct >= 55 ? '▲' : m.bullishPct <= 45 ? '▼' : '—';
+    const netColor     = m.netFlow >= 0 ? 'var(--bullish)' : 'var(--bearish)';
+    const putPressColor= m.putPressurePct > 65 ? 'var(--bearish)' : m.putPressurePct < 35 ? 'var(--bullish)' : 'var(--neutral)';
+    const smartTotal   = m.smartBull + m.smartBear;
+    const smartDir     = m.smartBull >= m.smartBear ? '↑ שורי' : '↓ דובי';
+    const smartColor   = m.smartBull >= m.smartBear ? 'var(--bullish)' : 'var(--bearish)';
+    const bullW        = m.bullishPrem + m.bearishPrem > 0 ? (m.bullishPrem / (m.bullishPrem + m.bearishPrem)) * 100 : 50;
 
-    // Donut
-    const r = 24, cx = 30, cy = 30;
-    const circ = 2 * Math.PI * r;
-    const callArc = (callW / 100) * circ;
-    const putArc = circ - callArc;
+    const cs       = m.convictionScore;
+    const csColor  = cs >= 60 ? 'var(--bullish)' : cs <= 40 ? 'var(--bearish)' : 'var(--neutral)';
+    const csLabel  = cs >= 65 ? 'שורי חזק' : cs >= 55 ? 'שורי מתון' : cs >= 45 ? 'ניטרלי' : cs >= 35 ? 'דובי מתון' : 'דובי חזק';
+    const nearColor= m.nearScore >= 55 ? 'var(--bullish)' : m.nearScore <= 45 ? 'var(--bearish)' : 'var(--neutral)';
+    const farColor = m.farScore  >= 55 ? 'var(--bullish)' : m.farScore  <= 45 ? 'var(--bearish)' : 'var(--neutral)';
+
+    const topML = m.mlStructures
+      .filter(s => s.direction !== 'neutral')
+      .sort((a,b) => b.totalPrem - a.totalPrem)
+      .slice(0, 2);
+    const mlHtml = topML.length > 0
+      ? topML.map(s => `<span style="color:${s.direction === 'bullish' ? 'var(--bullish)' : 'var(--bearish)'}">${s.structType} ${fmtM(s.totalPrem)}</span>`).join(' · ')
+      : `<span style="color:var(--subtle)">אין מבנים כיווניים</span>`;
+
+    // ── Conclusion box (compact) ──
+    const floorDir   = m.floorBull + m.floorBear;
+    const borderColor= cs >= 60 ? 'var(--bullish)' : cs <= 40 ? 'var(--bearish)' : 'var(--neutral)';
+    let headline = cs >= 65 ? 'כסף מוסדי מוצב לעליות — קונוויקשן שורי גבוה'
+      : cs >= 55 ? 'נטייה שורית — יותר כסף גדול בצד החיובי'
+      : cs >= 45 ? 'שוק מפוצל — אין כיוון מוסדי ברור'
+      : cs >= 35 ? 'נטייה דובית — לחץ מוסדי כלפי מטה'
+      : 'כסף מוסדי מוצב לירידות — קונוויקשן דובי גבוה';
+    const lines = [];
+    if (floorDir > 0) {
+      const fp = (m.floorBull / floorDir) * 100;
+      lines.push(fp >= 70
+        ? `Floor שורי בעיקר (${m.floorBull}/${floorDir}) — ${fmtM(m.floorPrem)}`
+        : fp <= 30
+        ? `Floor דובי בעיקר (${m.floorBear}/${floorDir}) — ${fmtM(m.floorPrem)}`
+        : `Floor מפוצל ↑${m.floorBull} ↓${m.floorBear}`);
+    }
+    const nearLbl = m.nearScore >= 60 ? 'שורי' : m.nearScore <= 40 ? 'דובי' : 'ניטרלי';
+    const farLbl  = m.farScore  >= 60 ? 'שורי' : m.farScore  <= 40 ? 'דובי' : 'ניטרלי';
+    lines.push(`שבוע: ${nearLbl} (${m.nearScore.toFixed(0)}%) · טווח: ${farLbl} (${m.farScore.toFixed(0)}%)`);
+    if (m.isoCount > 0)
+      lines.push(`⚡ ISO: ${m.isoCount} — ${m.isoBull > m.isoBear ? 'שורי' : 'דובי'}`);
+    if (m.mlBull + m.mlBear >= 2)
+      lines.push(`ML: ↑${m.mlBull} שוריים · ↓${m.mlBear} דוביים`);
 
     const card = document.createElement('div');
     card.className = 'card index-card fade-in';
-    card.style.borderTopColor = lbl.color;
     card.innerHTML = `
       <div class="index-header">
         <div>
           <div class="index-symbol">${sym}</div>
           <div class="index-price mono">$${m.lastPrice.toFixed(2)}</div>
         </div>
-        <div class="index-badge" style="background:${lbl.color}22;color:${lbl.color};border:1px solid ${lbl.color}44">${lbl.text}</div>
+        <div class="index-badge" style="background:${lbl.color}22;color:${lbl.color};border:1px solid ${lbl.color}44">
+          ${dirArrow} ${lbl.text}
+        </div>
       </div>
 
       <div class="bullish-bar-wrap">
@@ -1627,258 +1693,89 @@ function renderIndexCards() {
         </div>
       </div>
 
-      <div class="index-metrics">
-        <div class="metric-row">
-          <div class="metric-label">זרם נטו</div>
-          <div class="metric-value mono" style="color:${netColor}">${fmtSign(m.netFlow)}</div>
+      <!-- Section 1: Flow -->
+      <div class="metric-divider"></div>
+      <div class="cmetric-2col">
+        <div class="cmetric-2col-item">
+          <div class="cl">זרם נטו</div>
+          <div class="cv" style="color:${netColor}">${fmtSign(m.netFlow)}</div>
         </div>
-        <div class="metric-row">
-          <div class="metric-label">קניית פוטים (לחץ)</div>
-          <div class="metric-value mono" style="color:${putPressColor}">${m.putPressurePct.toFixed(0)}%</div>
-        </div>
-        <div class="metric-row">
-          <div class="metric-label">DTE ממוצע שורי</div>
-          <div class="metric-value mono text-bullish">${m.avgBullDTE.toFixed(0)} ימים</div>
-        </div>
-        <div class="metric-row">
-          <div class="metric-label">DTE ממוצע דובי</div>
-          <div class="metric-value mono text-bearish">${m.avgBearDTE.toFixed(0)} ימים</div>
-        </div>
-
-        <div class="metric-divider"></div>
-
-        <div class="metric-row">
-          <div class="metric-label">סה"כ עסקאות</div>
-          <div class="metric-value mono">${m.totalTrades.toLocaleString()}</div>
-        </div>
-        <div class="metric-row">
-          <div class="metric-label">סך פרמיה כולל</div>
-          <div class="metric-value mono">${fmtM(m.totalPrem)}</div>
-        </div>
-        <div class="metric-row">
-          <div class="metric-label">סה"כ וולום (חוזים)</div>
-          <div class="metric-value mono">${m.totalVolume.toLocaleString()}</div>
-        </div>
-
-        <div class="metric-divider"></div>
-
-        <div class="metric-row">
-          <div class="metric-label">📦 Floor Blocks</div>
-          <div class="metric-value mono">${m.floorCount} · <span style="color:var(--bullish)">↑${m.floorBull}</span> <span style="color:var(--bearish)">↓${m.floorBear}</span> · ${fmtM(m.floorPrem)}</div>
-        </div>
-        <div class="side-breakdown">
-          <div class="side-row">
-            <span class="side-label" style="color:var(--bullish)">Call</span>
-            <span class="side-count mono">${m.floorCall}</span>
-            <span class="side-prem mono">${fmtM(m.floorCallPrem)}</span>
-            <span class="side-pct mono">${m.floorCount > 0 ? (m.floorCall/m.floorCount*100).toFixed(0) : 0}%</span>
-          </div>
-          <div class="side-row">
-            <span class="side-label" style="color:var(--bearish)">Put</span>
-            <span class="side-count mono">${m.floorPut}</span>
-            <span class="side-prem mono">${fmtM(m.floorPutPrem)}</span>
-            <span class="side-pct mono">${m.floorCount > 0 ? (m.floorPut/m.floorCount*100).toFixed(0) : 0}%</span>
-          </div>
-        </div>
-        <div class="metric-row">
-          <div class="metric-label">⚡ ISO Sweeps</div>
-          <div class="metric-value mono">${m.isoCount} · <span style="color:var(--bullish)">↑${m.isoBull}</span> <span style="color:var(--bearish)">↓${m.isoBear}</span>${m.isoPrem > 0 ? ' · ' + fmtM(m.isoPrem) : ''}</div>
-        </div>
-
-        <div class="metric-divider"></div>
-
-        ${(() => {
-          const cs = m.convictionScore;
-          const csColor = cs >= 60 ? 'var(--bullish)' : cs <= 40 ? 'var(--bearish)' : 'var(--neutral)';
-          const csLabel = cs >= 65 ? 'שורי חזק' : cs >= 55 ? 'שורי מתון' : cs >= 45 ? 'ניטרלי' : cs >= 35 ? 'דובי מתון' : 'דובי חזק';
-          const nearColor = m.nearScore >= 55 ? 'var(--bullish)' : m.nearScore <= 45 ? 'var(--bearish)' : 'var(--neutral)';
-          const farColor  = m.farScore  >= 55 ? 'var(--bullish)' : m.farScore  <= 45 ? 'var(--bearish)' : 'var(--neutral)';
-          const topML = m.mlStructures
-            .filter(s => s.direction !== 'neutral')
-            .sort((a,b) => b.totalPrem - a.totalPrem)
-            .slice(0, 3);
-          const mlSummaryHtml = topML.length > 0
-            ? topML.map(s => {
-                const c = s.direction === 'bullish' ? 'var(--bullish)' : 'var(--bearish)';
-                return `<span style="color:${c}">${s.structType} ${fmtM(s.totalPrem)}</span>`;
-              }).join(' · ')
-            : `<span style="color:var(--subtle)">אין מבנים כיווניים</span>`;
-          return `
-          <div class="conviction-header">🎯 קונוויקשן מוסדי</div>
-          <div class="metric-row">
-            <div class="metric-label">ML כיווני</div>
-            <div class="metric-value" style="font-size:11px;line-height:1.6;text-align:left">${mlSummaryHtml}</div>
-          </div>
-          <div class="conviction-score-row">
-            <span style="font-size:12px;color:var(--subtle)">ציון מאוחד</span>
-            <span class="conviction-badge" style="color:${csColor};border:1px solid ${csColor}44">${Math.round(cs)}/100 — ${csLabel}</span>
-          </div>
-          <div class="conviction-bar-group">
-            <div class="conviction-bar-label">📅 שבוע — Floor+ISO DTE≤21 (${m.nearScore.toFixed(0)}% שורי)</div>
-            <div class="conviction-bar-track">
-              <div class="conviction-bar-fill" style="width:${m.nearScore.toFixed(1)}%;background:${nearColor}"></div>
-            </div>
-            <div class="conviction-bar-vals"><span style="color:var(--bearish)">דובי</span><span style="color:${nearColor}">${m.nearScore.toFixed(0)}%</span><span style="color:var(--bullish)">שורי</span></div>
-          </div>
-          <div class="conviction-bar-group">
-            <div class="conviction-bar-label">📆 טווח — Floor+ISO DTE>21 (${m.farScore.toFixed(0)}% שורי)</div>
-            <div class="conviction-bar-track">
-              <div class="conviction-bar-fill" style="width:${m.farScore.toFixed(1)}%;background:${farColor}"></div>
-            </div>
-            <div class="conviction-bar-vals"><span style="color:var(--bearish)">דובי</span><span style="color:${farColor}">${m.farScore.toFixed(0)}%</span><span style="color:var(--bullish)">שורי</span></div>
-          </div>`;
-        })()}
-
-        <div class="metric-divider"></div>
-
-        <div class="metric-row">
-          <div class="metric-label">Call — סה"כ</div>
-          <div class="metric-value mono text-bullish">${m.callCount.toLocaleString()} עסקאות · ${fmtM(m.callPrem)}</div>
-        </div>
-        <div class="side-breakdown">
-          ${[
-            { label: 'Ask', count: m.callAsk, prem: m.callAskPrem },
-            { label: 'Bid', count: m.callBid, prem: m.callBidPrem },
-            { label: 'Mid', count: m.callMid, prem: m.callMidPrem }
-          ].map(s => {
-            const pct = m.callCount > 0 ? (s.count / m.callCount * 100).toFixed(0) : 0;
-            return `<div class="side-row">
-              <span class="side-label">${s.label}</span>
-              <span class="side-count mono">${s.count}</span>
-              <span class="side-prem mono">${fmtM(s.prem)}</span>
-              <span class="side-pct mono">${pct}%</span>
-            </div>`;
-          }).join('')}
-        </div>
-
-        <div class="metric-divider"></div>
-
-        <div class="metric-row">
-          <div class="metric-label">Put — סה"כ</div>
-          <div class="metric-value mono text-bearish">${m.putCount.toLocaleString()} עסקאות · ${fmtM(m.putPrem)}</div>
-        </div>
-        <div class="side-breakdown">
-          ${[
-            { label: 'Ask', count: m.putAsk, prem: m.putAskPrem },
-            { label: 'Bid', count: m.putBid, prem: m.putBidPrem },
-            { label: 'Mid', count: m.putMid, prem: m.putMidPrem }
-          ].map(s => {
-            const pct = m.putCount > 0 ? (s.count / m.putCount * 100).toFixed(0) : 0;
-            return `<div class="side-row">
-              <span class="side-label">${s.label}</span>
-              <span class="side-count mono">${s.count}</span>
-              <span class="side-prem mono">${fmtM(s.prem)}</span>
-              <span class="side-pct mono">${pct}%</span>
-            </div>`;
-          }).join('')}
+        <div class="cmetric-2col-item">
+          <div class="cl">לחץ פוטים</div>
+          <div class="cv" style="color:${putPressColor}">${m.putPressurePct.toFixed(0)}%</div>
         </div>
       </div>
 
-      <div class="donut-wrap">
-        <svg class="donut-svg" viewBox="0 0 60 60">
-          <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,77,106,0.3)" stroke-width="10"/>
-          <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(0,230,118,0.7)" stroke-width="10"
-            stroke-dasharray="${callArc.toFixed(2)} ${putArc.toFixed(2)}"
-            stroke-dashoffset="${(circ * 0.25).toFixed(2)}" />
-        </svg>
-        <div class="donut-legend">
-          <div class="donut-legend-row">
-            <div class="donut-dot" style="background:var(--bullish)"></div>
-            <div class="donut-legend-label">Call</div>
-            <div class="donut-legend-val mono text-bullish">${fmtM(m.callPrem)}</div>
+      <!-- Section 2: Smart money -->
+      <div class="metric-divider"></div>
+      <div class="cmetric-group">
+        ${smartTotal > 0 ? `<div class="cmetric-row">
+          <span class="cmetric-label">💰 כסף חכם</span>
+          <span class="cmetric-value" style="color:${smartColor}">${smartTotal} — ${smartDir}</span>
+          <span class="cmetric-sub">(↑${m.smartBull} ↓${m.smartBear})</span>
+        </div>` : ''}
+        <div class="cmetric-row">
+          <span class="cmetric-label">📦 Floor Blocks</span>
+          <span class="cmetric-value">${m.floorCount}</span>
+          <span class="cmetric-sub">
+            <span class="text-bullish">↑${m.floorBull}</span>
+            <span class="text-bearish"> ↓${m.floorBear}</span>
+            ${m.floorPrem > 0 ? ' · ' + fmtM(m.floorPrem) : ''}
+          </span>
+        </div>
+        ${m.isoCount > 0 ? `<div class="cmetric-row">
+          <span class="cmetric-label">⚡ ISO Sweeps</span>
+          <span class="cmetric-value">${m.isoCount}</span>
+          <span class="cmetric-sub">
+            <span class="text-bullish">↑${m.isoBull}</span>
+            <span class="text-bearish"> ↓${m.isoBear}</span>
+            ${m.isoPrem > 0 ? ' · ' + fmtM(m.isoPrem) : ''}
+          </span>
+        </div>` : ''}
+      </div>
+
+      <!-- Section 3: Conviction -->
+      <div class="metric-divider"></div>
+      <div class="cmetric-group">
+        <div class="cmetric-row">
+          <span class="cmetric-label">🎯 קונוויקשן</span>
+          <span class="cmetric-value" style="color:${csColor}">${Math.round(cs)}/100 — ${csLabel}</span>
+        </div>
+        <div class="conviction-bar-group">
+          <div class="conviction-bar-label">שבוע (DTE≤21): ${m.nearScore.toFixed(0)}% שורי</div>
+          <div class="conviction-bar-track">
+            <div class="conviction-bar-fill" style="width:${m.nearScore.toFixed(1)}%;background:${nearColor}"></div>
           </div>
-          <div class="donut-legend-row">
-            <div class="donut-dot" style="background:var(--bearish)"></div>
-            <div class="donut-legend-label">Put</div>
-            <div class="donut-legend-val mono text-bearish">${fmtM(m.putPrem)}</div>
+        </div>
+        <div class="conviction-bar-group">
+          <div class="conviction-bar-label">טווח (DTE>21): ${m.farScore.toFixed(0)}% שורי</div>
+          <div class="conviction-bar-track">
+            <div class="conviction-bar-fill" style="width:${m.farScore.toFixed(1)}%;background:${farColor}"></div>
           </div>
+        </div>
+        <div class="cmetric-row">
+          <span class="cmetric-label">ML מבנים</span>
+          <span style="font-size:11px;line-height:1.7">${mlHtml}</span>
         </div>
       </div>
 
-      <div class="smart-row">
-        <div class="mini-stat">
-          <div class="mini-stat-label">כסף חכם</div>
-          <div class="mini-stat-val mono" style="color:${smartColor}">${m.smartBull + m.smartBear}</div>
-          <div class="mini-stat-sub" style="color:${smartColor}">${smartDir}</div>
-        </div>
-        <div class="mini-stat">
-          <div class="mini-stat-label">Floor Blocks</div>
-          <div class="mini-stat-val mono" style="color:var(--accent)">${m.floorCount}</div>
-          <div class="mini-stat-sub" style="color:var(--bullish)">↑${m.floorBull} <span style="color:var(--bearish)">↓${m.floorBear}</span></div>
-        </div>
+      <!-- Conclusion -->
+      <div class="card-conclusion" style="border-right-color:${borderColor}">
+        <div class="conclusion-headline" style="color:${borderColor}">${headline}</div>
+        ${lines.map(l => `<div class="conclusion-line">${l}</div>`).join('')}
       </div>
-
-      ${(() => {
-        const cs = m.convictionScore;
-        const near = m.nearScore;
-        const far = m.farScore;
-        const floorDir = m.floorBull + m.floorBear;
-        const floorBearPct = floorDir > 0 ? (m.floorBear / floorDir) * 100 : 50;
-        const floorBullPct = floorDir > 0 ? (m.floorBull / floorDir) * 100 : 50;
-        const borderColor = cs >= 60 ? 'var(--bullish)' : cs <= 40 ? 'var(--bearish)' : 'var(--neutral)';
-
-        // Headline
-        let headline = '';
-        if (cs >= 65) headline = 'כסף מוסדי מוצב לעליות — קונוויקשן שורי גבוה';
-        else if (cs >= 55) headline = 'נטייה שורית — יותר כסף גדול בצד החיובי';
-        else if (cs >= 45) headline = 'שוק מפוצל — אין כיוון מוסדי ברור';
-        else if (cs >= 35) headline = 'נטייה דובית — לחץ מוסדי כלפי מטה';
-        else headline = 'כסף מוסדי מוצב לירידות — קונוויקשן דובי גבוה';
-
-        // Lines
-        const lines = [];
-
-        // Floor block signal
-        if (floorDir > 0) {
-          if (floorBearPct >= 70)
-            lines.push(`Floor Blocks דוביים בעיקר (${m.floorBear}/${floorDir}) — ${fmtM(m.floorPrem)} הלכו לפוטים`);
-          else if (floorBullPct >= 70)
-            lines.push(`Floor Blocks שוריים בעיקר (${m.floorBull}/${floorDir}) — ${fmtM(m.floorPrem)} הלכו לקולז`);
-          else
-            lines.push(`Floor Blocks מפוצלים (↑${m.floorBull} ↓${m.floorBear}) — אין קונוויקשן ברור`);
-        }
-
-        // Near-term
-        if (near <= 25) lines.push(`קצר-טווח (DTE≤21): לחץ דובי חזק מאוד — ${near.toFixed(0)}% שורי`);
-        else if (near <= 40) lines.push(`קצר-טווח (DTE≤21): דובי — ${near.toFixed(0)}% שורי`);
-        else if (near >= 75) lines.push(`קצר-טווח (DTE≤21): מומנטום שורי חזק — ${near.toFixed(0)}% שורי`);
-        else if (near >= 60) lines.push(`קצר-טווח (DTE≤21): שורי — ${near.toFixed(0)}% שורי`);
-        else lines.push(`קצר-טווח (DTE≤21): ניטרלי — ${near.toFixed(0)}% שורי`);
-
-        // Far-term
-        if (far <= 35) lines.push(`טווח בינוני (DTE>21): דובי — ${far.toFixed(0)}% שורי`);
-        else if (far >= 65) lines.push(`טווח בינוני (DTE>21): שורי — ${far.toFixed(0)}% שורי`);
-        else lines.push(`טווח בינוני (DTE>21): ניטרלי — ${far.toFixed(0)}% שורי`);
-
-        // ML structures
-        if (m.mlBear >= 2 && m.mlBear > m.mlBull)
-          lines.push(`${m.mlBear} מבני Spread דוביים מזוהים (${fmtM(m.mlBearPrem)})`);
-        else if (m.mlBull >= 2 && m.mlBull > m.mlBear)
-          lines.push(`${m.mlBull} מבני Spread שוריים מזוהים (${fmtM(m.mlBullPrem)})`);
-
-        // ISO
-        if (m.isoCount > 0) {
-          if (m.isoBull > m.isoBear) lines.push(`⚡ ISO Sweep שורי — ביצוע דחוף, כוונה ברורה`);
-          else if (m.isoBear > m.isoBull) lines.push(`⚡ ISO Sweep דובי — ביצוע דחוף, כוונה ברורה`);
-        }
-
-        return `<div class="card-conclusion" style="border-right-color:${borderColor}">
-          <div class="conclusion-headline" style="color:${borderColor}">${headline}</div>
-          ${lines.map(l => `<div class="conclusion-line">${l}</div>`).join('')}
-        </div>`;
-      })()}
     `;
     grid.appendChild(card);
   });
 }
 
-// ── TEXT SUMMARY ──
+// ── TEXT SUMMARY (3 insights) ──
 function generateTextSummary() {
-  const card = document.getElementById('text-summary-card');
+  const card    = document.getElementById('text-summary-card');
   const content = document.getElementById('text-summary-content');
   const metrics = {};
   ['SPY','QQQ','IWM'].forEach(sym => {
-    if (state.data[sym].length > 0) metrics[sym] = computeMetrics(state.data[sym]);
+    if (state.data[sym] && state.data[sym].length > 0) metrics[sym] = computeMetrics(state.data[sym]);
   });
   const available = Object.keys(metrics);
   if (!available.length) return;
@@ -1887,110 +1784,84 @@ function generateTextSummary() {
   let totalW = 0, weightedScore = 0;
   available.forEach(sym => { weightedScore += metrics[sym].bullishPct * weights[sym]; totalW += weights[sym]; });
   const overallScore = totalW > 0 ? weightedScore / totalW : 50;
-  const overallLbl = scoreLabel(overallScore);
+  const overallLbl   = scoreLabel(overallScore);
+  const dateStr      = (state.fileDate || new Date()).toLocaleDateString('he-IL', { day:'numeric', month:'long', year:'numeric' });
 
-  function tagFor(pct) {
-    if (pct >= 60) return `<span class="tag-bull">שורי</span>`;
-    if (pct >= 52) return `<span class="tag-bull">שורי מתון</span>`;
-    if (pct >= 45) return `<span class="tag-neut">ניטרלי</span>`;
-    if (pct >= 38) return `<span class="tag-bear">דובי מתון</span>`;
-    return `<span class="tag-bear">דובי</span>`;
-  }
-
-  function describeIndex(sym) {
-    const m = metrics[sym];
-    if (!m) return '';
-    const lbl = scoreLabel(m.bullishPct);
-    const netStr = m.netFlow >= 0
-      ? `זרם נטו חיובי של <strong>+${fmtM(m.netFlow)}</strong>`
-      : `זרם נטו שלילי של <strong>${fmtM(m.netFlow)}</strong>`;
-    const smartTotal = m.smartBull + m.smartBear;
-    const smartStr = smartTotal === 0
-      ? `אין עסקאות "כסף חכם" (>$1M)`
-      : `${smartTotal} עסקאות "כסף חכם" (>$1M) — ${m.smartBull} שוריות, ${m.smartBear} דוביות`;
-    const putAskPct = m.putPrem > 0 ? (m.putAskPrem / m.putPrem * 100) : 0;
-    const putBidPct = m.putPrem > 0 ? (m.putBidPrem / m.putPrem * 100) : 0;
-    const putMidPct = m.putPrem > 0 ? (m.putMidPrem / m.putPrem * 100) : 0;
-    const putAction = `פוטים: <strong>${putAskPct.toFixed(0)}%</strong> נקנו (Ask) · <strong>${putBidPct.toFixed(0)}%</strong> נמכרו (Bid) · <strong>${putMidPct.toFixed(0)}%</strong> Mid`;
-    const floorNote = m.floorCount > 0
-      ? `📦 Floor Blocks: ${m.floorCount} עסקאות ${fmtM(m.floorPrem)} — ↑${m.floorBull} שוריות ↓${m.floorBear} דוביות`
-      : '📦 Floor Blocks: אין';
-    const isoStr = m.isoCount > 0 ? ` | ⚡ ISO: ${m.isoCount} (↑${m.isoBull} ↓${m.isoBear})` : '';
-    const mlDirStr = (m.mlBull + m.mlBear) > 0
-      ? ` | ML: ↑${m.mlBull} שוריים ↓${m.mlBear} דוביים`
-      : '';
-    const csLabel = m.convictionScore >= 65 ? 'שורי חזק' : m.convictionScore >= 55 ? 'שורי מתון' : m.convictionScore >= 45 ? 'ניטרלי' : m.convictionScore >= 35 ? 'דובי מתון' : 'דובי חזק';
-    const convictionNote = `🎯 קונוויקשן: <strong>${Math.round(m.convictionScore)}/100 — ${csLabel}</strong> | שבוע: ${m.nearScore.toFixed(0)}% שורי · טווח: ${m.farScore.toFixed(0)}% שורי`;
-    const dteDiff = m.avgBearDTE - m.avgBullDTE;
-    const dteNote = Math.abs(dteDiff) > 5
-      ? (dteDiff > 0 ? `הדוביים מסתכלים קדימה יותר (DTE ממוצע ${m.avgBearDTE.toFixed(0)}d vs ${m.avgBullDTE.toFixed(0)}d שורי)` : `השוריים מסתכלים קדימה יותר (DTE ממוצע ${m.avgBullDTE.toFixed(0)}d vs ${m.avgBearDTE.toFixed(0)}d דובי)`)
-      : `אופק זמן דומה לשני הצדדים (~${m.avgBullDTE.toFixed(0)}d)`;
-    const callNote = m.callBuyPrem > m.callSellPrem
-      ? `קניית קולז: ${fmtM(m.callBuyPrem)} (אגרסיבי)`
-      : `מכירת קולז: ${fmtM(m.callSellPrem)} (דפנסיבי)`;
-
-    const borderCol = lbl.color;
-    return `
-      <div class="summary-index-block" style="border-right-color:${borderCol}">
-        <div class="idx-title">
-          <span style="color:${borderCol};font-family:'DM Mono',monospace">${sym}</span>
-          ${tagFor(m.bullishPct)}
-          <span style="color:var(--subtle);font-size:12px;font-family:'DM Mono',monospace">$${m.lastPrice.toFixed(2)}</span>
-        </div>
-        <ul style="padding-right:18px;color:var(--subtle);font-size:13px;line-height:1.9">
-          <li>${netStr} — ${m.bullishPct.toFixed(1)}% מהזרם הכוונתי שורי</li>
-          <li>${putAction} | ${callNote}</li>
-          <li>${smartStr}</li>
-          <li>${floorNote}${isoStr}${mlDirStr}</li>
-          <li>${convictionNote}</li>
-          <li>${dteNote}</li>
-        </ul>
-      </div>`;
-  }
-
-  // Overall
-  const overallDesc = overallScore >= 65
-    ? 'השוק מציג <strong>סנטימנט שורי ברור</strong> — הזרם הכוונתי חיובי על פני שלושת המדדים.'
-    : overallScore >= 55
-    ? 'השוק מציג <strong>סנטימנט שורי מתון</strong> — רוב הזרם חיובי, אך ישנן הגנות משמעותיות.'
-    : overallScore >= 45
-    ? 'השוק <strong>ניטרלי</strong> — הזרם מפוצל, אין קונבינקשן ברור לכיוון.'
-    : overallScore >= 35
-    ? 'השוק מציג <strong>סנטימנט דובי מתון</strong> — קניית הגנות עולה על הסנטימנט החיובי.'
-    : 'השוק מציג <strong>סנטימנט דובי ברור</strong> — כסף חכם קונה הגנות באגרסיביות.';
-
-  // Strongest / weakest
-  const sorted = available.slice().sort((a,b) => metrics[b].bullishPct - metrics[a].bullishPct);
-  const strongest = sorted[0], weakest = sorted[sorted.length-1];
-  const relNote = available.length >= 2
-    ? `<strong>${strongest}</strong> הוא המדד החזק ביותר (${metrics[strongest].bullishPct.toFixed(1)}% שורי)${available.length >= 2 ? `, בעוד <strong>${weakest}</strong> מציג את הסנטימנט החלש ביותר (${metrics[weakest].bullishPct.toFixed(1)}%)` : ''}.`
+  // ── Insight 1: Main signal — index with highest conviction ──
+  const byConv   = available.slice().sort((a,b) => metrics[b].convictionScore - metrics[a].convictionScore);
+  const leader   = byConv[0];
+  const lm       = metrics[leader];
+  const lDir     = lm.convictionScore >= 55 ? 'שורי' : lm.convictionScore <= 45 ? 'דובי' : 'ניטרלי';
+  const lColor   = scoreLabel(lm.bullishPct).color;
+  const floorPart= lm.floorCount > 0
+    ? ` · <strong>${lm.floorCount}</strong> Floor Blocks (↑${lm.floorBull} ↓${lm.floorBear} · ${fmtM(lm.floorPrem)})`
     : '';
+  const isoPart  = lm.isoCount > 0 ? ` · <strong>${lm.isoCount}</strong> ISO Sweeps (↑${lm.isoBull} ↓${lm.isoBear})` : '';
+  const insight1 = `<strong style="color:${lColor}">${leader}</strong> — קונוויקשן <strong>${lDir} ${Math.round(lm.convictionScore)}/100</strong> · זרם נטו <strong style="color:${lm.netFlow>=0?'var(--bullish)':'var(--bearish)'}">${fmtSign(lm.netFlow)}</strong>${floorPart}${isoPart}`;
 
-  // Key alert
-  const alerts = [];
+  // ── Insight 2: Divergence — indices disagree? ──
+  let insight2 = null;
+  if (available.length >= 2) {
+    const pcts  = available.map(s => metrics[s].bullishPct);
+    const maxS  = Math.max(...pcts), minS = Math.min(...pcts);
+    const spread= maxS - minS;
+    if (spread >= 12) {
+      const strongIdx = available.find(s => metrics[s].bullishPct === maxS);
+      const weakIdx   = available.find(s => metrics[s].bullishPct === minS);
+      insight2 = `<strong style="color:var(--bullish)">${strongIdx}</strong> שורי (${maxS.toFixed(0)}%) לעומת <strong style="color:var(--bearish)">${weakIdx}</strong> חלש (${minS.toFixed(0)}%) — פיצול של <strong>${spread.toFixed(0)}%</strong> בין המדדים`;
+    } else {
+      // Conviction gap divergence
+      const convPcts = available.map(s => metrics[s].convictionScore);
+      const convMax  = Math.max(...convPcts), convMin = Math.min(...convPcts);
+      if (convMax - convMin >= 20) {
+        const hi = available.find(s => metrics[s].convictionScore === convMax);
+        const lo = available.find(s => metrics[s].convictionScore === convMin);
+        insight2 = `קונוויקשן <strong style="color:var(--bullish)">${hi}</strong> (${convMax.toFixed(0)}) גבוה בהרבה מ-<strong>${lo}</strong> (${convMin.toFixed(0)}) — פיצול מוסדי`;
+      }
+    }
+  }
+
+  // ── Insight 3: Risk alert or confirmation ──
+  let insight3 = null, insight3Class = 'insight-ok';
+  // Check risks first
+  let maxPutPress = 0, putPressSym = null;
+  let maxBearAdv  = 0, bearAdvSym  = null;
   available.forEach(sym => {
     const m = metrics[sym];
-    if (m.putPressurePct > 70) alerts.push(`⚠️ <strong>${sym}</strong>: ${m.putPressurePct.toFixed(0)}% מהפוטים נקנו — לחץ הגנה גבוה מאוד`);
-    if (m.smartBear > m.smartBull && m.smartBear >= 5) alerts.push(`🔴 <strong>${sym}</strong>: כסף חכם דובי (${m.smartBear} עסקאות >$1M)`);
-    if (m.netFlow > 5e6) alerts.push(`🟢 <strong>${sym}</strong>: זרם נטו שורי חזק (+${fmtM(m.netFlow)})`);
-    if (m.sweepCount >= 30) alerts.push(`⚡ <strong>${sym}</strong>: ${m.sweepCount} סוויפים — קונבינקשן גבוה`);
+    if (m.putPressurePct > maxPutPress) { maxPutPress = m.putPressurePct; putPressSym = sym; }
+    const ba = m.smartBear - m.smartBull;
+    if (ba > maxBearAdv) { maxBearAdv = ba; bearAdvSym = sym; }
   });
-
-  const now = state.fileDate || new Date();
-  const dateStr = now.toLocaleDateString('he-IL', { day:'numeric', month:'long', year:'numeric' });
+  if (maxPutPress > 68) {
+    insight3 = `⚠️ לחץ הגנה גבוה ב-<strong>${putPressSym}</strong> — ${maxPutPress.toFixed(0)}% מהפוטים נקנו (Ask)`;
+    insight3Class = 'insight-risk';
+  } else if (bearAdvSym && maxBearAdv >= 3) {
+    const m = metrics[bearAdvSym];
+    insight3 = `⚠️ כסף חכם דובי ב-<strong>${bearAdvSym}</strong> — ${m.smartBear} עסקאות >$1M דוביות לעומת ${m.smartBull} שוריות`;
+    insight3Class = 'insight-risk';
+  } else {
+    // Positive confirmation
+    const conf = available.find(s => metrics[s].bullishPct >= 60 && metrics[s].convictionScore >= 60);
+    if (conf) {
+      const cm = metrics[conf];
+      insight3 = `✅ <strong>${conf}</strong> — זרם + קונוויקשן מאשרים סנטימנט שורי (${cm.bullishPct.toFixed(0)}% · Conv ${Math.round(cm.convictionScore)})`;
+    } else if (overallScore <= 40) {
+      insight3 = `⚠️ סנטימנט שלילי — שלושת המדדים מציגים לחץ דובי`;
+      insight3Class = 'insight-risk';
+    }
+  }
 
   content.innerHTML = `
     <div class="summary-overall">
-      🗓️ <strong>${dateStr}</strong> · ציון כולל: <strong style="color:${overallLbl.color}">${Math.round(overallScore)}/100 — ${overallLbl.text}</strong><br>
-      ${overallDesc} ${relNote}
+      🗓️ <strong>${dateStr}</strong>
+      &nbsp;·&nbsp;
+      <strong style="color:${overallLbl.color}">${overallLbl.text} ${Math.round(overallScore)}/100</strong>
     </div>
-    <div class="summary-index-row">
-      ${available.map(sym => describeIndex(sym)).join('')}
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:12px">
+      <div class="insight-row insight-main">🔑 ${insight1}</div>
+      ${insight2 ? `<div class="insight-row insight-diverg">⚖️ ${insight2}</div>` : ''}
+      ${insight3 ? `<div class="insight-row ${insight3Class}">${insight3}</div>` : ''}
     </div>
-    ${alerts.length ? `<div class="summary-conclusion">
-      <strong>🔔 התראות מפתח:</strong><br>
-      ${alerts.map(a => `• ${a}`).join('<br>')}
-    </div>` : ''}
   `;
   card.style.display = 'block';
 }
@@ -2039,7 +1910,9 @@ function renderTimeline() {
     return { hour: h, bull: totalBull, bear: totalBear, net: totalBull - totalBear };
   });
 
-  const maxVal = Math.max(...netByHour.map(d => Math.max(d.bull, d.bear)), 1);
+  const maxVal  = Math.max(...netByHour.map(d => Math.max(d.bull, d.bear)), 1);
+  const meanBull = netByHour.reduce((s,d) => s + d.bull, 0) / (netByHour.length || 1);
+  const meanBear = netByHour.reduce((s,d) => s + d.bear, 0) / (netByHour.length || 1);
 
   const svgW = Math.max(600, sortedHours.length * 80);
   const svgH = 220;
@@ -2069,17 +1942,24 @@ function renderTimeline() {
     const bullH = (d.bull / maxVal) * chartH;
     const bearH = (d.bear / maxVal) * chartH;
 
+    const isBullSpike = d.bull > 0 && d.bull > meanBull * 2.2;
+    const isBearSpike = d.bear > 0 && d.bear > meanBear * 2.2;
+
     // Bull bar (left of center)
     if (d.bull > 0) {
-      svgContent += `<rect class="tl-bar-bullish" x="${cx - barW - 2}" y="${baseY - bullH}" width="${barW}" height="${bullH}" rx="2">
-        <title>שעה ${d.hour}:00 | שורי: ${fmtM(d.bull)}</title>
+      const cls = isBullSpike ? 'tl-spike-bull' : 'tl-bar-bullish';
+      svgContent += `<rect class="${cls}" x="${cx - barW - 2}" y="${baseY - bullH}" width="${barW}" height="${bullH}" rx="2">
+        <title>שעה ${d.hour}:00 | שורי: ${fmtM(d.bull)}${isBullSpike ? ' ⚡ שיא' : ''}</title>
       </rect>`;
+      if (isBullSpike) svgContent += `<text style="font-size:9px;fill:var(--bullish);font-family:'DM Mono',monospace" text-anchor="middle" x="${cx - barW/2 - 2}" y="${baseY - bullH - 4}">⚡</text>`;
     }
     // Bear bar (right of center)
     if (d.bear > 0) {
-      svgContent += `<rect class="tl-bar-bearish" x="${cx + 2}" y="${baseY - bearH}" width="${barW}" height="${bearH}" rx="2">
-        <title>שעה ${d.hour}:00 | דובי: ${fmtM(d.bear)}</title>
+      const cls = isBearSpike ? 'tl-spike-bear' : 'tl-bar-bearish';
+      svgContent += `<rect class="${cls}" x="${cx + 2}" y="${baseY - bearH}" width="${barW}" height="${bearH}" rx="2">
+        <title>שעה ${d.hour}:00 | דובי: ${fmtM(d.bear)}${isBearSpike ? ' ⚡ שיא' : ''}</title>
       </rect>`;
+      if (isBearSpike) svgContent += `<text style="font-size:9px;fill:var(--bearish);font-family:'DM Mono',monospace" text-anchor="middle" x="${cx + barW/2 + 2}" y="${baseY - bearH - 4}">⚡</text>`;
     }
 
     // Hour label
