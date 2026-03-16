@@ -1704,11 +1704,11 @@ function renderIndexCards() {
       <div class="metric-divider"></div>
       <div class="cmetric-2col">
         <div class="cmetric-2col-item">
-          <div class="cl">יתרת פרמיה</div>
+          <div class="cl" title="הפרש הדולרים בין פרמיה שורית לדובית. עודף שורי = יותר כסף הימר על עליות.">יתרת פרמיה <span style="font-size:9px;color:var(--dim);cursor:help">(?)</span></div>
           <div class="cv" style="color:${netColor}">${netExplain}</div>
         </div>
         <div class="cmetric-2col-item">
-          <div class="cl">הגנות שוק</div>
+          <div class="cl" title="כמה פוטים (ביטוח נגד ירידה) נקנו ביחס לסך הפקודות. גבוה = יש חשש בשוק. נמוך = אין פחד.">הגנות שוק <span style="font-size:9px;color:var(--dim);cursor:help">(?)</span></div>
           <div class="cv" style="color:${protectColor}">${protectLbl}</div>
         </div>
       </div>
@@ -1717,7 +1717,7 @@ function renderIndexCards() {
       <div class="metric-divider"></div>
       <div class="cmetric-group">
         ${instTotal > 0 ? `<div class="cmetric-row">
-          <span class="cmetric-label">🏦 כסף מוסדי</span>
+          <span class="cmetric-label" title="עסקאות גדולות של מוסדות — בנקים, קרנות גידור. כולל עסקאות ענק על רצפת הבורסה וקניות דחופות. הכיוון שלהם = כיוון הכסף החכם.">🏦 כסף מוסדי <span style="font-size:9px;color:var(--dim);cursor:help">(?)</span></span>
           <span class="cmetric-value" style="color:${instColor}">${instDir}</span>
           <span class="cmetric-sub">${instTotal} עסקאות ענק${instPrem > 0 ? ' · ' + fmtM(instPrem) : ''}</span>
         </div>` : `<div class="cmetric-row">
@@ -1730,7 +1730,7 @@ function renderIndexCards() {
       <div class="metric-divider"></div>
       <div class="cmetric-group">
         <div class="cmetric-row">
-          <span class="cmetric-label">📐 עוצמת כיוון</span>
+          <span class="cmetric-label" title="האם הכסף הגדול מגבה את הכיוון? חזקה = עסקאות ענק תואמות את הזרם. חלשה = הזרם קיים אך ללא תמיכה מוסדית.">📐 עוצמת כיוון <span style="font-size:9px;color:var(--dim);cursor:help">(?)</span></span>
           <span class="cmetric-value" style="color:${csColor}">${csLabel}</span>
         </div>
         <div class="conviction-bar-group">
