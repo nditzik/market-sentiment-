@@ -1812,88 +1812,68 @@ function generateTextSummary() {
   const overallLbl   = scoreLabel(overallScore);
   const dateStr      = (state.fileDate || new Date()).toLocaleDateString('he-IL', { day:'numeric', month:'long', year:'numeric' });
 
-  // ── Insight 1: המדד המוביל ──
-  const byConv  = available.slice().sort((a,b) => metrics[b].convictionScore - metrics[a].convictionScore);
-  const leader  = byConv[0];
-  const lm      = metrics[leader];
-  const lColor  = scoreLabel(lm.bullishPct).color;
-  const lDir    = lm.bullishPct >= 55 ? 'שורי' : lm.bullishPct <= 45 ? 'דובי' : 'ניטרלי';
-  const lStrength = lm.convictionScore >= 65 ? 'בעוצמה חזקה' : lm.convictionScore >= 55 ? 'בעוצמה מתונה' : '';
-  const instTotal = lm.floorCount + lm.isoCount;
-  const instBull  = lm.floorBull + lm.isoBull;
-  const instBear  = lm.floorBear + lm.isoBear;
-  const instPart  = instTotal > 0
-    ? ` · עסקאות ענק ${instBull > instBear ? 'בכיוון שורי' : instBear > instBull ? 'בכיוון דובי' : 'מאוזנות'} (${instTotal})`
-    : '';
-  const netPart   = lm.netFlow !== 0
-    ? ` · יתרת פרמיה <strong style="color:${lm.netFlow>0?'var(--bullish)':'var(--bearish)'}">${lm.netFlow>0?'+':''}${fmtM(lm.netFlow)}</strong>`
-    : '';
-  const insight1 = `<strong style="color:${lColor}">${leader}</strong> — ${lDir} ${lStrength}${netPart}${instPart}`;
+  // ── שורה 1: תמונה כללית — כיוון + עד כמה המדדים מסכימים ──
+  const byBull   = available.slice().sort((a,b) => metrics[b].bullishPct - metrics[a].bullishPct);
+  const allBull  = available.every(s => metrics[s].bullishPct >= 55);
+  const allBear  = available.every(s => metrics[s].bullishPct <= 45);
+  const pcts     = available.map(s => metrics[s].bullishPct);
+  const spread   = Math.max(...pcts) - Math.min(...pcts);
+  const aligned  = spread < 12;
 
-  // ── Insight 2: האם המדדים מסכימים? ──
-  let insight2 = null;
-  if (available.length >= 2) {
-    const pcts   = available.map(s => metrics[s].bullishPct);
-    const maxS   = Math.max(...pcts), minS = Math.min(...pcts);
-    const spread = maxS - minS;
-    if (spread >= 12) {
-      const strongIdx = available.find(s => metrics[s].bullishPct === maxS);
-      const weakIdx   = available.find(s => metrics[s].bullishPct === minS);
-      insight2 = `<strong style="color:var(--bullish)">${strongIdx}</strong> שורי (${maxS.toFixed(0)}%) לעומת <strong style="color:var(--bearish)">${weakIdx}</strong> חלש (${minS.toFixed(0)}%) — פיצול של <strong>${spread.toFixed(0)}%</strong> בין המדדים`;
-    } else {
-      const convPcts = available.map(s => metrics[s].convictionScore);
-      const convMax  = Math.max(...convPcts), convMin = Math.min(...convPcts);
-      if (convMax - convMin >= 20) {
-        const hi = available.find(s => metrics[s].convictionScore === convMax);
-        const lo = available.find(s => metrics[s].convictionScore === convMin);
-        insight2 = `עוצמת הכיוון של <strong style="color:var(--bullish)">${hi}</strong> גבוהה משמעותית מ-<strong>${lo}</strong> — המדדים לא שווים`;
-      }
-    }
+  let insight1;
+  if (allBull && aligned)
+    insight1 = `שלושת המדדים שוריים ומסכימים — כיוון עליות ברור`;
+  else if (allBear && aligned)
+    insight1 = `שלושת המדדים דוביים ומסכימים — כיוון ירידות ברור`;
+  else if (allBull)
+    insight1 = `כל המדדים שוריים אך לא בעוצמה שווה — <strong>${byBull[0]}</strong> מוביל, <strong>${byBull[byBull.length-1]}</strong> מפגר`;
+  else if (allBear)
+    insight1 = `כל המדדים דוביים אך לא בעוצמה שווה — <strong>${byBull[byBull.length-1]}</strong> מוביל את הירידה, <strong>${byBull[0]}</strong> פחות חזק`;
+  else {
+    const strongIdx = byBull[0];
+    const weakIdx   = byBull[byBull.length - 1];
+    const strongDir = metrics[strongIdx].bullishPct >= 55 ? 'שורי' : 'ניטרלי';
+    const weakDir   = metrics[weakIdx].bullishPct <= 45 ? 'דובי' : 'ניטרלי';
+    insight1 = `המדדים מפוצלים — <strong>${strongIdx}</strong> ${strongDir} בזמן ש-<strong>${weakIdx}</strong> ${weakDir}`;
   }
 
-  // ── Insight 3: התראה או אישור ──
+  // ── שורה 2: מה הכי בולט — near/far split, הגנות שוק, או עקביות ──
+  let insight2 = null, insight2Class = 'insight-diverg';
+
+  // near vs far split — הכי משמעותי
+  const splitIdx = available.find(sym => {
+    const m = metrics[sym];
+    return Math.abs(m.nearScore - m.farScore) >= 30 &&
+           ((m.nearScore <= 40 && m.farScore >= 60) || (m.nearScore >= 60 && m.farScore <= 40));
+  });
+  if (splitIdx) {
+    const cm = metrics[splitIdx];
+    if (cm.nearScore <= 40 && cm.farScore >= 60)
+      insight2 = `ב-<strong>${splitIdx}</strong> — לחץ לטווח קצר אך כסף קונה לטווח ארוך. ייתכן שהירידה זמנית`;
+    else
+      insight2 = `ב-<strong>${splitIdx}</strong> — שורי לטווח קצר אך ציפיות ארוכות דוביות. זהירות מפני ירידה עתידית`;
+  } else if (spread >= 20) {
+    // פיצול חד בין המדדים
+    const strongIdx = byBull[0];
+    const weakIdx   = byBull[byBull.length - 1];
+    insight2 = `פיצול חד — <strong>${strongIdx}</strong> (${metrics[strongIdx].bullishPct.toFixed(0)}% שורי) לעומת <strong>${weakIdx}</strong> (${metrics[weakIdx].bullishPct.toFixed(0)}% שורי בלבד)`;
+  }
+
+  // ── שורה 3: התראה או אישור ──
   let insight3 = null, insight3Class = 'insight-ok';
   let maxPutPress = 0, putPressSym = null;
-  let maxBearAdv  = 0, bearAdvSym  = null;
   available.forEach(sym => {
     const m = metrics[sym];
     if (m.putPressurePct > maxPutPress) { maxPutPress = m.putPressurePct; putPressSym = sym; }
-    const ba = m.smartBear - m.smartBull;
-    if (ba > maxBearAdv) { maxBearAdv = ba; bearAdvSym = sym; }
   });
   if (maxPutPress > 68) {
-    insight3 = `⚠️ הגנות שוק גבוהות ב-<strong>${putPressSym}</strong> — ${maxPutPress.toFixed(0)}% מהפקודות הן הגנות דוביות`;
+    insight3 = `⚠️ הגנות שוק גבוהות ב-<strong>${putPressSym}</strong> — שחקנים גדולים מגנים על עצמם מירידה`;
     insight3Class = 'insight-risk';
-  } else if (bearAdvSym && maxBearAdv >= 3) {
-    const m = metrics[bearAdvSym];
-    insight3 = `⚠️ מוסדים מוכרים ב-<strong>${bearAdvSym}</strong> — ${m.smartBear} עסקאות ענק דוביות לעומת ${m.smartBull} שוריות`;
+  } else if (allBull && aligned) {
+    insight3 = `✅ שלושת המדדים מאשרים — סנטימנט שורי עקבי`;
+  } else if (allBear && aligned) {
+    insight3 = `⚠️ שלושת המדדים מאשרים — סנטימנט דובי עקבי`;
     insight3Class = 'insight-risk';
-  } else {
-    // Check for near vs far split across indices
-    const splitIdx = available.find(sym => {
-      const m = metrics[sym];
-      return Math.abs(m.nearScore - m.farScore) >= 30 &&
-             ((m.nearScore <= 40 && m.farScore >= 60) || (m.nearScore >= 60 && m.farScore <= 40));
-    });
-    if (splitIdx) {
-      const cm = metrics[splitIdx];
-      if (cm.nearScore <= 40 && cm.farScore >= 60) {
-        insight3 = `⚡ <strong>${splitIdx}</strong> — לחץ קצר טווח (${cm.nearScore.toFixed(0)}%) אך ציפיות ארוכות שוריות (${cm.farScore.toFixed(0)}%) — כסף קונה את הירידה`;
-        insight3Class = 'insight-diverg';
-      } else {
-        insight3 = `⚠️ <strong>${splitIdx}</strong> — שורי לטווח קצר (${cm.nearScore.toFixed(0)}%) אך ציפיות ארוכות דוביות (${cm.farScore.toFixed(0)}%) — זהירות`;
-        insight3Class = 'insight-risk';
-      }
-    } else {
-      const conf = available.find(s => metrics[s].bullishPct >= 60 && metrics[s].convictionScore >= 60);
-      if (conf) {
-        const cm = metrics[conf];
-        insight3 = `✅ <strong>${conf}</strong> — זרם ועוצמה שוריים בהתאמה (${cm.bullishPct.toFixed(0)}% מהפרמיה, עוצמה ${cm.convictionScore >= 65 ? 'חזקה' : 'מתונה'})`;
-      } else if (overallScore <= 40) {
-        insight3 = `⚠️ סנטימנט שלילי — המדדים מציגים לחץ דובי`;
-        insight3Class = 'insight-risk';
-      }
-    }
   }
 
   content.innerHTML = `
@@ -1904,7 +1884,7 @@ function generateTextSummary() {
     </div>
     <div style="display:flex;flex-direction:column;gap:10px;margin-top:12px">
       <div class="insight-row insight-main">🔑 ${insight1}</div>
-      ${insight2 ? `<div class="insight-row insight-diverg">⚖️ ${insight2}</div>` : ''}
+      ${insight2 ? `<div class="insight-row ${insight2Class}">⚡ ${insight2}</div>` : ''}
       ${insight3 ? `<div class="insight-row ${insight3Class}">${insight3}</div>` : ''}
     </div>
   `;
