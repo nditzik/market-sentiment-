@@ -1654,19 +1654,52 @@ function renderIndexCards() {
       : `<span style="color:${mlBullCount >= mlBearCount ? 'var(--bullish)' : 'var(--bearish)'}">↑${mlBullCount} שוריות · ↓${mlBearCount} דוביות</span>`;
 
     // ── Conclusion ──
-    const borderColor = cs >= 60 ? 'var(--bullish)' : cs <= 40 ? 'var(--bearish)' : 'var(--neutral)';
-    let headline;
-    if (m.bullishPct >= 65 && cs >= 60)      headline = 'כסף מוסדי שורי — עוצמה חזקה לכיוון עליות';
-    else if (m.bullishPct >= 55 && cs >= 55) headline = 'נטייה שורית — רוב הכסף הגדול בצד הקונים';
-    else if (m.bullishPct >= 55)             headline = 'זרם שורי אך עוצמה מוסדית מעורבת';
-    else if (m.bullishPct <= 35 && cs <= 40) headline = 'כסף מוסדי דובי — עוצמה חזקה לכיוון ירידות';
-    else if (m.bullishPct <= 45 && cs <= 45) headline = 'נטייה דובית — לחץ כלפי מטה';
-    else                                     headline = 'שוק מפוצל — אין כיוון ברור';
+    // Detect near vs far split (short-term vs long-term divergence)
+    const nearBear  = m.nearScore <= 40;
+    const nearBull  = m.nearScore >= 60;
+    const farBull   = m.farScore  >= 60;
+    const farBear   = m.farScore  <= 40;
+    const timeSplit = Math.abs(m.nearScore - m.farScore) >= 30 &&
+                      ((nearBear && farBull) || (nearBull && farBear));
+
+    let headline, borderColor;
+    if (timeSplit && nearBear && farBull) {
+      headline    = '⚡ לחץ קצר טווח, אך ציפיות ארוכות שוריות — כסף קונה את הירידה';
+      borderColor = '#f5c842';
+    } else if (timeSplit && nearBull && farBear) {
+      headline    = '⚠️ שורי לטווח קצר אך ציפיות ארוכות דוביות — זהירות';
+      borderColor = 'var(--bearish)';
+    } else if (m.bullishPct >= 65 && cs >= 60) {
+      headline    = 'כיוון עליות ברור — זרם ועוצמה מסכימים';
+      borderColor = 'var(--bullish)';
+    } else if (m.bullishPct >= 55 && cs >= 55) {
+      headline    = 'נטייה שורית — רוב הכסף בצד הקונים';
+      borderColor = 'var(--bullish)';
+    } else if (m.bullishPct >= 55) {
+      headline    = 'זרם שורי אך עוצמה חלשה';
+      borderColor = 'var(--neutral)';
+    } else if (m.bullishPct <= 35 && cs <= 40) {
+      headline    = 'כיוון ירידות ברור — זרם ועוצמה מסכימים';
+      borderColor = 'var(--bearish)';
+    } else if (m.bullishPct <= 45 && cs <= 45) {
+      headline    = 'נטייה דובית — לחץ כלפי מטה';
+      borderColor = 'var(--bearish)';
+    } else {
+      headline    = 'שוק מפוצל — אין כיוון ברור';
+      borderColor = 'var(--neutral)';
+    }
 
     const reasons = [];
-    if (instTotal > 0) {
-      if (instBull > instBear) reasons.push(`עסקאות ענק בכיוון שורי (${instTotal})`);
-      else if (instBear > instBull) reasons.push(`עסקאות ענק בכיוון דובי (${instTotal})`);
+    if (timeSplit) {
+      if (nearBear && farBull)
+        reasons.push(`עד 3 שבועות דובי (${m.nearScore.toFixed(0)}%) · מעל 3 שבועות שורי (${m.farScore.toFixed(0)}%)`);
+      else
+        reasons.push(`עד 3 שבועות שורי (${m.nearScore.toFixed(0)}%) · מעל 3 שבועות דובי (${m.farScore.toFixed(0)}%)`);
+    } else {
+      if (instTotal > 0) {
+        if (instBull > instBear) reasons.push(`עסקאות ענק בכיוון שורי (${instTotal})`);
+        else if (instBear > instBull) reasons.push(`עסקאות ענק בכיוון דובי (${instTotal})`);
+      }
     }
     if (m.putPressurePct > 68) reasons.push(`הגנות שוק גבוהות — ${protectPct}%`);
     else if (m.putPressurePct < 32) reasons.push(`שוק רגוע — מעט הגנות`);
@@ -1836,13 +1869,30 @@ function generateTextSummary() {
     insight3 = `⚠️ מוסדים מוכרים ב-<strong>${bearAdvSym}</strong> — ${m.smartBear} עסקאות ענק דוביות לעומת ${m.smartBull} שוריות`;
     insight3Class = 'insight-risk';
   } else {
-    const conf = available.find(s => metrics[s].bullishPct >= 60 && metrics[s].convictionScore >= 60);
-    if (conf) {
-      const cm = metrics[conf];
-      insight3 = `✅ <strong>${conf}</strong> — זרם ועוצמה שוריים בהתאמה (${cm.bullishPct.toFixed(0)}% מהפרמיה, עוצמה ${cm.convictionScore >= 65 ? 'חזקה' : 'מתונה'})`;
-    } else if (overallScore <= 40) {
-      insight3 = `⚠️ סנטימנט שלילי — המדדים מציגים לחץ דובי`;
-      insight3Class = 'insight-risk';
+    // Check for near vs far split across indices
+    const splitIdx = available.find(sym => {
+      const m = metrics[sym];
+      return Math.abs(m.nearScore - m.farScore) >= 30 &&
+             ((m.nearScore <= 40 && m.farScore >= 60) || (m.nearScore >= 60 && m.farScore <= 40));
+    });
+    if (splitIdx) {
+      const cm = metrics[splitIdx];
+      if (cm.nearScore <= 40 && cm.farScore >= 60) {
+        insight3 = `⚡ <strong>${splitIdx}</strong> — לחץ קצר טווח (${cm.nearScore.toFixed(0)}%) אך ציפיות ארוכות שוריות (${cm.farScore.toFixed(0)}%) — כסף קונה את הירידה`;
+        insight3Class = 'insight-diverg';
+      } else {
+        insight3 = `⚠️ <strong>${splitIdx}</strong> — שורי לטווח קצר (${cm.nearScore.toFixed(0)}%) אך ציפיות ארוכות דוביות (${cm.farScore.toFixed(0)}%) — זהירות`;
+        insight3Class = 'insight-risk';
+      }
+    } else {
+      const conf = available.find(s => metrics[s].bullishPct >= 60 && metrics[s].convictionScore >= 60);
+      if (conf) {
+        const cm = metrics[conf];
+        insight3 = `✅ <strong>${conf}</strong> — זרם ועוצמה שוריים בהתאמה (${cm.bullishPct.toFixed(0)}% מהפרמיה, עוצמה ${cm.convictionScore >= 65 ? 'חזקה' : 'מתונה'})`;
+      } else if (overallScore <= 40) {
+        insight3 = `⚠️ סנטימנט שלילי — המדדים מציגים לחץ דובי`;
+        insight3Class = 'insight-risk';
+      }
     }
   }
 
