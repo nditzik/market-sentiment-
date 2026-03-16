@@ -1636,7 +1636,7 @@ function renderIndexCards() {
     const instTotal = m.floorCount + m.isoCount;
     const instBull  = m.floorBull + m.isoBull;
     const instBear  = m.floorBear + m.isoBear;
-    const instDir   = instBull > instBear ? '↑ רוכש' : instBull < instBear ? '↓ מוכר' : '↔ מאוזן';
+    const instDir   = instBull > instBear ? '↑ כיוון שורי' : instBull < instBear ? '↓ כיוון דובי' : '↔ מאוזן';
     const instColor = instBull > instBear ? 'var(--bullish)' : instBull < instBear ? 'var(--bearish)' : 'var(--neutral)';
     const instPrem  = m.floorPrem + m.isoPrem;
 
@@ -1665,8 +1665,8 @@ function renderIndexCards() {
 
     const reasons = [];
     if (instTotal > 0) {
-      if (instBull > instBear) reasons.push(`מוסדים רוכשים (${instTotal} עסקאות ענק)`);
-      else if (instBear > instBull) reasons.push(`מוסדים מוכרים (${instTotal} עסקאות ענק)`);
+      if (instBull > instBear) reasons.push(`עסקאות ענק בכיוון שורי (${instTotal})`);
+      else if (instBear > instBull) reasons.push(`עסקאות ענק בכיוון דובי (${instTotal})`);
     }
     if (m.putPressurePct > 68) reasons.push(`הגנות שוק גבוהות — ${protectPct}%`);
     else if (m.putPressurePct < 32) reasons.push(`שוק רגוע — מעט הגנות`);
@@ -1790,7 +1790,7 @@ function generateTextSummary() {
   const instBull  = lm.floorBull + lm.isoBull;
   const instBear  = lm.floorBear + lm.isoBear;
   const instPart  = instTotal > 0
-    ? ` · מוסדים ${instBull > instBear ? 'רוכשים' : instBear > instBull ? 'מוכרים' : 'מאוזנים'} (${instTotal} עסקאות ענק)`
+    ? ` · עסקאות ענק ${instBull > instBear ? 'בכיוון שורי' : instBear > instBull ? 'בכיוון דובי' : 'מאוזנות'} (${instTotal})`
     : '';
   const netPart   = lm.netFlow !== 0
     ? ` · יתרת פרמיה <strong style="color:${lm.netFlow>0?'var(--bullish)':'var(--bearish)'}">${lm.netFlow>0?'+':''}${fmtM(lm.netFlow)}</strong>`
