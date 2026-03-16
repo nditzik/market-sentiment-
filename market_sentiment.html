@@ -1563,28 +1563,23 @@ function renderGauge() {
   // ── Direction arrow ──
   const dirArrow = finalScore >= 55 ? '▲' : finalScore <= 45 ? '▼' : '—';
 
-  // ── Overall conviction gap ──
-  const overallGap = finalConviction - finalScore;
-  const gapColor   = Math.abs(overallGap) < 5 ? 'var(--subtle)' : overallGap > 0 ? 'var(--bullish)' : 'var(--bearish)';
-  const gapStr     = Math.abs(overallGap) < 5 ? 'מוסדי תואם זרם'
-    : overallGap > 0 ? `מוסדי שורי יותר (+${overallGap.toFixed(0)})`
-    : `מוסדי דובי יותר (${overallGap.toFixed(0)})`;
+  // ── Strength label (plain Hebrew, replaces "conviction") ──
+  const strLabel = finalConviction >= 65 ? 'עוצמה חזקה'
+    : finalConviction >= 55 ? 'עוצמה מתונה'
+    : finalConviction >= 45 ? 'עוצמה חלשה'
+    : 'כיוון לא ברור';
+  const strColor = scoreLabel(finalConviction).color;
 
-  // ── Per-index rows ──
+  // ── Per-index rows — simplified ──
   const rowsHtml = inputs.map(inp => {
-    const lc = scoreLabel(inp.pct).color;
-    const cc = scoreLabel(inp.conv).color;
-    const gap = inp.conv - inp.pct;
-    const gAbs = Math.abs(gap);
-    const gc   = gAbs < 5 ? 'var(--subtle)' : gap > 0 ? 'var(--bullish)' : 'var(--bearish)';
-    const gStr = gAbs < 5 ? '↔ תואם' : gap > 0 ? `↑ +${gAbs.toFixed(0)} מוסדי` : `↓ -${gAbs.toFixed(0)} מוסדי`;
+    const lc      = scoreLabel(inp.pct).color;
+    const dirWord = inp.pct >= 55 ? 'שורי' : inp.pct <= 45 ? 'דובי' : 'ניטרלי';
     return `
     <div class="index-score-row">
       <div class="isr-sym">${inp.sym}</div>
       <div class="isr-bar-wrap"><div class="isr-bar" style="width:${inp.pct.toFixed(1)}%;background:${lc}"></div></div>
       <div class="isr-pct" style="color:${lc}">${inp.pct.toFixed(0)}%</div>
-      <div class="isr-conv" style="color:${cc};border:1px solid ${cc}44">Conv ${Math.round(inp.conv)}</div>
-      <div class="isr-gap" style="color:${gc}">${gStr}</div>
+      <div class="isr-conv" style="color:${lc};border:1px solid ${lc}44">${dirWord}</div>
     </div>`;
   }).join('');
 
@@ -1594,9 +1589,8 @@ function renderGauge() {
       <div>
         <div class="direction-label" style="color:${lbl.color}">${lbl.text}</div>
         <div class="direction-sub">
-          זרם כולל <strong style="color:${lbl.color}">${Math.round(finalScore)}%</strong> שורי
-          &nbsp;·&nbsp; קונוויקשן <strong style="color:${scoreLabel(finalConviction).color}">${Math.round(finalConviction)}</strong>
-          &nbsp;·&nbsp; <span style="color:${gapColor}">${gapStr}</span>
+          <strong style="color:${lbl.color}">${Math.round(finalScore)}%</strong> מהפרמיה הולכת לכיוון השורי
+          &nbsp;·&nbsp; <span style="color:${strColor}">${strLabel}</span>
         </div>
         ${deltaStr ? `<div class="direction-delta" style="color:${deltaColor}">${deltaStr}</div>` : ''}
       </div>
@@ -1604,10 +1598,9 @@ function renderGauge() {
     <div>
       <div style="display:flex;gap:10px;padding:0 0 4px;font-size:10px;color:var(--subtle)">
         <div style="width:40px"></div>
-        <div style="flex:1;padding-left:6px;text-align:right">זרם כיווני</div>
+        <div style="flex:1;padding-left:6px;text-align:right">% פרמיה שורית</div>
         <div style="width:42px"></div>
-        <div style="width:80px;text-align:center">קונוויקשן</div>
-        <div style="width:96px;text-align:center">פער מוסדי</div>
+        <div style="width:80px;text-align:center">כיוון</div>
       </div>
       ${rowsHtml}
     </div>
@@ -1625,61 +1618,63 @@ function renderIndexCards() {
     const m = computeMetrics(rows);
     const lbl = scoreLabel(m.bullishPct);
 
-    const dirArrow     = m.bullishPct >= 55 ? '▲' : m.bullishPct <= 45 ? '▼' : '—';
-    const netColor     = m.netFlow >= 0 ? 'var(--bullish)' : 'var(--bearish)';
-    const putPressColor= m.putPressurePct > 65 ? 'var(--bearish)' : m.putPressurePct < 35 ? 'var(--bullish)' : 'var(--neutral)';
-    const smartTotal   = m.smartBull + m.smartBear;
-    const smartDir     = m.smartBull >= m.smartBear ? '↑ שורי' : '↓ דובי';
-    const smartColor   = m.smartBull >= m.smartBear ? 'var(--bullish)' : 'var(--bearish)';
-    const bullW        = m.bullishPrem + m.bearishPrem > 0 ? (m.bullishPrem / (m.bullishPrem + m.bearishPrem)) * 100 : 50;
+    const dirArrow  = m.bullishPct >= 55 ? '▲' : m.bullishPct <= 45 ? '▼' : '—';
+    const bullW     = m.bullishPrem + m.bearishPrem > 0 ? (m.bullishPrem / (m.bullishPrem + m.bearishPrem)) * 100 : 50;
 
+    // ── Section 1: Flow ──
+    const netColor    = m.netFlow >= 0 ? 'var(--bullish)' : 'var(--bearish)';
+    const netExplain  = m.netFlow >= 0
+      ? `${fmtM(m.netFlow)} עודף שורי`
+      : `${fmtM(Math.abs(m.netFlow))} עודף דובי`;
+    const protectPct  = m.putPressurePct.toFixed(0);
+    const protectColor= m.putPressurePct > 65 ? 'var(--bearish)' : m.putPressurePct < 35 ? 'var(--bullish)' : 'var(--neutral)';
+    const protectLbl  = m.putPressurePct > 65 ? 'גבוה — יש חשש בשוק'
+      : m.putPressurePct < 35 ? 'נמוך — שוק רגוע'
+      : 'רגיל';
+
+    // ── Section 2: Institutional money (Floor + ISO merged) ──
+    const instTotal = m.floorCount + m.isoCount;
+    const instBull  = m.floorBull + m.isoBull;
+    const instBear  = m.floorBear + m.isoBear;
+    const instDir   = instBull > instBear ? '↑ רוכש' : instBull < instBear ? '↓ מוכר' : '↔ מאוזן';
+    const instColor = instBull > instBear ? 'var(--bullish)' : instBull < instBear ? 'var(--bearish)' : 'var(--neutral)';
+    const instPrem  = m.floorPrem + m.isoPrem;
+
+    // ── Section 3: Direction strength ──
     const cs       = m.convictionScore;
     const csColor  = cs >= 60 ? 'var(--bullish)' : cs <= 40 ? 'var(--bearish)' : 'var(--neutral)';
-    const csLabel  = cs >= 65 ? 'שורי חזק' : cs >= 55 ? 'שורי מתון' : cs >= 45 ? 'ניטרלי' : cs >= 35 ? 'דובי מתון' : 'דובי חזק';
+    const csLabel  = cs >= 65 ? 'חזקה' : cs >= 55 ? 'מתונה' : cs >= 45 ? 'חלשה' : 'לא ברורה';
     const nearColor= m.nearScore >= 55 ? 'var(--bullish)' : m.nearScore <= 45 ? 'var(--bearish)' : 'var(--neutral)';
     const farColor = m.farScore  >= 55 ? 'var(--bullish)' : m.farScore  <= 45 ? 'var(--bearish)' : 'var(--neutral)';
+    const mlBullCount = m.mlStructures.filter(s => s.direction === 'bullish').length;
+    const mlBearCount = m.mlStructures.filter(s => s.direction === 'bearish').length;
+    const mlTotal     = mlBullCount + mlBearCount;
+    const mlSummary   = mlTotal === 0
+      ? `<span style="color:var(--subtle)">אין פוזיציות מורכבות</span>`
+      : `<span style="color:${mlBullCount >= mlBearCount ? 'var(--bullish)' : 'var(--bearish)'}">↑${mlBullCount} שוריות · ↓${mlBearCount} דוביות</span>`;
 
-    const topML = m.mlStructures
-      .filter(s => s.direction !== 'neutral')
-      .sort((a,b) => b.totalPrem - a.totalPrem)
-      .slice(0, 2);
-    const mlHtml = topML.length > 0
-      ? topML.map(s => `<span style="color:${s.direction === 'bullish' ? 'var(--bullish)' : 'var(--bearish)'}">${s.structType} ${fmtM(s.totalPrem)}</span>`).join(' · ')
-      : `<span style="color:var(--subtle)">אין מבנים כיווניים</span>`;
-
-    // ── Conclusion box (2 lines: verdict + reason) ──
-    const floorDir   = m.floorBull + m.floorBear;
-    const borderColor= cs >= 60 ? 'var(--bullish)' : cs <= 40 ? 'var(--bearish)' : 'var(--neutral)';
-
-    // Verdict: what is the sentiment
+    // ── Conclusion ──
+    const borderColor = cs >= 60 ? 'var(--bullish)' : cs <= 40 ? 'var(--bearish)' : 'var(--neutral)';
     let headline;
-    if (m.bullishPct >= 65 && cs >= 60)      headline = 'כסף מוסדי שורי — זרם וקונוויקשן מצביעים על עליות';
-    else if (m.bullishPct >= 55 && cs >= 55) headline = 'נטייה שורית — רוב הכסף הגדול בצד החיובי';
-    else if (m.bullishPct >= 55)             headline = 'זרם שורי, אך קונוויקשן מוסדי מעורב';
-    else if (m.bullishPct <= 35 && cs <= 40) headline = 'כסף מוסדי דובי — זרם וקונוויקשן מצביעים על ירידות';
+    if (m.bullishPct >= 65 && cs >= 60)      headline = 'כסף מוסדי שורי — עוצמה חזקה לכיוון עליות';
+    else if (m.bullishPct >= 55 && cs >= 55) headline = 'נטייה שורית — רוב הכסף הגדול בצד הקונים';
+    else if (m.bullishPct >= 55)             headline = 'זרם שורי אך עוצמה מוסדית מעורבת';
+    else if (m.bullishPct <= 35 && cs <= 40) headline = 'כסף מוסדי דובי — עוצמה חזקה לכיוון ירידות';
     else if (m.bullishPct <= 45 && cs <= 45) headline = 'נטייה דובית — לחץ כלפי מטה';
-    else                                     headline = 'שוק מפוצל — אין כיוון מוסדי חד-משמעי';
+    else                                     headline = 'שוק מפוצל — אין כיוון ברור';
 
-    // Reason: why — pick the 2 most dominant signals
     const reasons = [];
-    if (floorDir > 0) {
-      const fp = (m.floorBull / floorDir) * 100;
-      if (fp >= 65)      reasons.push(`Floor Blocks שוריים (${m.floorBull}/${floorDir})`);
-      else if (fp <= 35) reasons.push(`Floor Blocks דוביים (${m.floorBear}/${floorDir})`);
+    if (instTotal > 0) {
+      if (instBull > instBear) reasons.push(`מוסדים רוכשים (${instTotal} עסקאות ענק)`);
+      else if (instBear > instBull) reasons.push(`מוסדים מוכרים (${instTotal} עסקאות ענק)`);
     }
-    if (m.isoCount > 0)
-      reasons.push(`ISO ${m.isoBull > m.isoBear ? 'שורי' : 'דובי'} (${m.isoCount})`);
-    if (m.putPressurePct > 68)
-      reasons.push(`לחץ פוטים גבוה (${m.putPressurePct.toFixed(0)}%)`);
-    else if (m.putPressurePct < 32)
-      reasons.push(`לחץ פוטים נמוך — אין הגנות (${m.putPressurePct.toFixed(0)}%)`);
-    if (m.mlBull + m.mlBear >= 2)
-      reasons.push(`ML: ↑${m.mlBull} שוריים ↓${m.mlBear} דוביים`);
+    if (m.putPressurePct > 68) reasons.push(`הגנות שוק גבוהות — ${protectPct}%`);
+    else if (m.putPressurePct < 32) reasons.push(`שוק רגוע — מעט הגנות`);
+    if (mlTotal >= 2) reasons.push(`פוזיציות מורכבות: ↑${mlBullCount} שוריות ↓${mlBearCount} דוביות`);
     if (reasons.length === 0) {
       const nearLbl = m.nearScore >= 60 ? 'שורי' : m.nearScore <= 40 ? 'דובי' : 'ניטרלי';
-      reasons.push(`קצר-טווח ${nearLbl} (${m.nearScore.toFixed(0)}%)`);
+      reasons.push(`טווח קצר ${nearLbl} (${m.nearScore.toFixed(0)}%)`);
     }
-    const lines = [reasons.slice(0, 3).join(' · ')];
 
     const card = document.createElement('div');
     card.className = 'card index-card fade-in';
@@ -1709,72 +1704,57 @@ function renderIndexCards() {
       <div class="metric-divider"></div>
       <div class="cmetric-2col">
         <div class="cmetric-2col-item">
-          <div class="cl">זרם נטו</div>
-          <div class="cv" style="color:${netColor}">${fmtSign(m.netFlow)}</div>
+          <div class="cl">יתרת פרמיה</div>
+          <div class="cv" style="color:${netColor}">${netExplain}</div>
         </div>
         <div class="cmetric-2col-item">
-          <div class="cl">לחץ פוטים</div>
-          <div class="cv" style="color:${putPressColor}">${m.putPressurePct.toFixed(0)}%</div>
+          <div class="cl">הגנות שוק</div>
+          <div class="cv" style="color:${protectColor}">${protectLbl}</div>
         </div>
       </div>
 
-      <!-- Section 2: Smart money -->
+      <!-- Section 2: Institutional money -->
       <div class="metric-divider"></div>
       <div class="cmetric-group">
-        ${smartTotal > 0 ? `<div class="cmetric-row">
-          <span class="cmetric-label">💰 כסף חכם</span>
-          <span class="cmetric-value" style="color:${smartColor}">${smartTotal} — ${smartDir}</span>
-          <span class="cmetric-sub">(↑${m.smartBull} ↓${m.smartBear})</span>
-        </div>` : ''}
-        <div class="cmetric-row">
-          <span class="cmetric-label" title="Floor Blocks — עסקאות מוסדיות גדולות שמבוצעות על רצפת הבורסה (SLFT/MLFT). סימן לכסף חכם עם כוונה מוצהרת.">📦 Floor <span style="font-size:9px;color:var(--dim);cursor:help">(?)</span></span>
-          <span class="cmetric-value">${m.floorCount}</span>
-          <span class="cmetric-sub">
-            <span class="text-bullish">↑${m.floorBull}</span>
-            <span class="text-bearish"> ↓${m.floorBear}</span>
-            ${m.floorPrem > 0 ? ' · ' + fmtM(m.floorPrem) : ''}
-          </span>
-        </div>
-        ${m.isoCount > 0 ? `<div class="cmetric-row">
-          <span class="cmetric-label" title="ISO Sweeps — ביצוע דחוף 'מצא לי מחיר עכשיו'. סימן לכוונה מהירה — כסף שחייב להיכנס.">⚡ ISO <span style="font-size:9px;color:var(--dim);cursor:help">(?)</span></span>
-          <span class="cmetric-value">${m.isoCount}</span>
-          <span class="cmetric-sub">
-            <span class="text-bullish">↑${m.isoBull}</span>
-            <span class="text-bearish"> ↓${m.isoBear}</span>
-            ${m.isoPrem > 0 ? ' · ' + fmtM(m.isoPrem) : ''}
-          </span>
-        </div>` : ''}
+        ${instTotal > 0 ? `<div class="cmetric-row">
+          <span class="cmetric-label">🏦 כסף מוסדי</span>
+          <span class="cmetric-value" style="color:${instColor}">${instDir}</span>
+          <span class="cmetric-sub">${instTotal} עסקאות ענק${instPrem > 0 ? ' · ' + fmtM(instPrem) : ''}</span>
+        </div>` : `<div class="cmetric-row">
+          <span class="cmetric-label">🏦 כסף מוסדי</span>
+          <span class="cmetric-value" style="color:var(--subtle)">אין עסקאות ענק</span>
+        </div>`}
       </div>
 
-      <!-- Section 3: Conviction -->
+      <!-- Section 3: Direction strength -->
       <div class="metric-divider"></div>
       <div class="cmetric-group">
         <div class="cmetric-row">
-          <span class="cmetric-label">🎯 קונוויקשן</span>
-          <span class="cmetric-value" style="color:${csColor}">${Math.round(cs)}/100 — ${csLabel}</span>
+          <span class="cmetric-label">📐 עוצמת כיוון</span>
+          <span class="cmetric-value" style="color:${csColor}">${csLabel}</span>
         </div>
         <div class="conviction-bar-group">
-          <div class="conviction-bar-label">שבוע (DTE≤21): ${m.nearScore.toFixed(0)}% שורי</div>
+          <div class="conviction-bar-label">עד 3 שבועות: ${m.nearScore.toFixed(0)}% שורי</div>
           <div class="conviction-bar-track">
             <div class="conviction-bar-fill" style="width:${m.nearScore.toFixed(1)}%;background:${nearColor}"></div>
           </div>
         </div>
         <div class="conviction-bar-group">
-          <div class="conviction-bar-label">טווח (DTE>21): ${m.farScore.toFixed(0)}% שורי</div>
+          <div class="conviction-bar-label">מעל 3 שבועות: ${m.farScore.toFixed(0)}% שורי</div>
           <div class="conviction-bar-track">
             <div class="conviction-bar-fill" style="width:${m.farScore.toFixed(1)}%;background:${farColor}"></div>
           </div>
         </div>
         <div class="cmetric-row">
-          <span class="cmetric-label" title="Multi-Leg — עסקה עם שתי רגליים ומעלה: Spread, Synthetic, Butterfly. מסמן פוזיציה מכוונת של כסף מוסדי.">🔀 ML <span style="font-size:9px;color:var(--dim);cursor:help">(?)</span></span>
-          <span style="font-size:11px;line-height:1.7">${mlHtml}</span>
+          <span class="cmetric-label">🔀 פוזיציות מורכבות</span>
+          <span style="font-size:11px;line-height:1.7">${mlSummary}</span>
         </div>
       </div>
 
       <!-- Conclusion -->
       <div class="card-conclusion" style="border-right-color:${borderColor}">
         <div class="conclusion-headline" style="color:${borderColor}">${headline}</div>
-        ${lines.map(l => `<div class="conclusion-line">${l}</div>`).join('')}
+        ${reasons.slice(0,2).map(l => `<div class="conclusion-line">${l}</div>`).join('')}
       </div>
     `;
     grid.appendChild(card);
@@ -1799,43 +1779,47 @@ function generateTextSummary() {
   const overallLbl   = scoreLabel(overallScore);
   const dateStr      = (state.fileDate || new Date()).toLocaleDateString('he-IL', { day:'numeric', month:'long', year:'numeric' });
 
-  // ── Insight 1: Main signal — index with highest conviction ──
-  const byConv   = available.slice().sort((a,b) => metrics[b].convictionScore - metrics[a].convictionScore);
-  const leader   = byConv[0];
-  const lm       = metrics[leader];
-  const lDir     = lm.convictionScore >= 55 ? 'שורי' : lm.convictionScore <= 45 ? 'דובי' : 'ניטרלי';
-  const lColor   = scoreLabel(lm.bullishPct).color;
-  const floorPart= lm.floorCount > 0
-    ? ` · <strong>${lm.floorCount}</strong> Floor Blocks (↑${lm.floorBull} ↓${lm.floorBear} · ${fmtM(lm.floorPrem)})`
+  // ── Insight 1: המדד המוביל ──
+  const byConv  = available.slice().sort((a,b) => metrics[b].convictionScore - metrics[a].convictionScore);
+  const leader  = byConv[0];
+  const lm      = metrics[leader];
+  const lColor  = scoreLabel(lm.bullishPct).color;
+  const lDir    = lm.bullishPct >= 55 ? 'שורי' : lm.bullishPct <= 45 ? 'דובי' : 'ניטרלי';
+  const lStrength = lm.convictionScore >= 65 ? 'בעוצמה חזקה' : lm.convictionScore >= 55 ? 'בעוצמה מתונה' : '';
+  const instTotal = lm.floorCount + lm.isoCount;
+  const instBull  = lm.floorBull + lm.isoBull;
+  const instBear  = lm.floorBear + lm.isoBear;
+  const instPart  = instTotal > 0
+    ? ` · מוסדים ${instBull > instBear ? 'רוכשים' : instBear > instBull ? 'מוכרים' : 'מאוזנים'} (${instTotal} עסקאות ענק)`
     : '';
-  const isoPart  = lm.isoCount > 0 ? ` · <strong>${lm.isoCount}</strong> ISO Sweeps (↑${lm.isoBull} ↓${lm.isoBear})` : '';
-  const insight1 = `<strong style="color:${lColor}">${leader}</strong> — קונוויקשן <strong>${lDir} ${Math.round(lm.convictionScore)}/100</strong> · זרם נטו <strong style="color:${lm.netFlow>=0?'var(--bullish)':'var(--bearish)'}">${fmtSign(lm.netFlow)}</strong>${floorPart}${isoPart}`;
+  const netPart   = lm.netFlow !== 0
+    ? ` · יתרת פרמיה <strong style="color:${lm.netFlow>0?'var(--bullish)':'var(--bearish)'}">${lm.netFlow>0?'+':''}${fmtM(lm.netFlow)}</strong>`
+    : '';
+  const insight1 = `<strong style="color:${lColor}">${leader}</strong> — ${lDir} ${lStrength}${netPart}${instPart}`;
 
-  // ── Insight 2: Divergence — indices disagree? ──
+  // ── Insight 2: האם המדדים מסכימים? ──
   let insight2 = null;
   if (available.length >= 2) {
-    const pcts  = available.map(s => metrics[s].bullishPct);
-    const maxS  = Math.max(...pcts), minS = Math.min(...pcts);
-    const spread= maxS - minS;
+    const pcts   = available.map(s => metrics[s].bullishPct);
+    const maxS   = Math.max(...pcts), minS = Math.min(...pcts);
+    const spread = maxS - minS;
     if (spread >= 12) {
       const strongIdx = available.find(s => metrics[s].bullishPct === maxS);
       const weakIdx   = available.find(s => metrics[s].bullishPct === minS);
       insight2 = `<strong style="color:var(--bullish)">${strongIdx}</strong> שורי (${maxS.toFixed(0)}%) לעומת <strong style="color:var(--bearish)">${weakIdx}</strong> חלש (${minS.toFixed(0)}%) — פיצול של <strong>${spread.toFixed(0)}%</strong> בין המדדים`;
     } else {
-      // Conviction gap divergence
       const convPcts = available.map(s => metrics[s].convictionScore);
       const convMax  = Math.max(...convPcts), convMin = Math.min(...convPcts);
       if (convMax - convMin >= 20) {
         const hi = available.find(s => metrics[s].convictionScore === convMax);
         const lo = available.find(s => metrics[s].convictionScore === convMin);
-        insight2 = `קונוויקשן <strong style="color:var(--bullish)">${hi}</strong> (${convMax.toFixed(0)}) גבוה בהרבה מ-<strong>${lo}</strong> (${convMin.toFixed(0)}) — פיצול מוסדי`;
+        insight2 = `עוצמת הכיוון של <strong style="color:var(--bullish)">${hi}</strong> גבוהה משמעותית מ-<strong>${lo}</strong> — המדדים לא שווים`;
       }
     }
   }
 
-  // ── Insight 3: Risk alert or confirmation ──
+  // ── Insight 3: התראה או אישור ──
   let insight3 = null, insight3Class = 'insight-ok';
-  // Check risks first
   let maxPutPress = 0, putPressSym = null;
   let maxBearAdv  = 0, bearAdvSym  = null;
   available.forEach(sym => {
@@ -1845,20 +1829,19 @@ function generateTextSummary() {
     if (ba > maxBearAdv) { maxBearAdv = ba; bearAdvSym = sym; }
   });
   if (maxPutPress > 68) {
-    insight3 = `⚠️ לחץ הגנה גבוה ב-<strong>${putPressSym}</strong> — ${maxPutPress.toFixed(0)}% מהפוטים נקנו (Ask)`;
+    insight3 = `⚠️ הגנות שוק גבוהות ב-<strong>${putPressSym}</strong> — ${maxPutPress.toFixed(0)}% מהפקודות הן הגנות דוביות`;
     insight3Class = 'insight-risk';
   } else if (bearAdvSym && maxBearAdv >= 3) {
     const m = metrics[bearAdvSym];
-    insight3 = `⚠️ כסף חכם דובי ב-<strong>${bearAdvSym}</strong> — ${m.smartBear} עסקאות >$1M דוביות לעומת ${m.smartBull} שוריות`;
+    insight3 = `⚠️ מוסדים מוכרים ב-<strong>${bearAdvSym}</strong> — ${m.smartBear} עסקאות ענק דוביות לעומת ${m.smartBull} שוריות`;
     insight3Class = 'insight-risk';
   } else {
-    // Positive confirmation
     const conf = available.find(s => metrics[s].bullishPct >= 60 && metrics[s].convictionScore >= 60);
     if (conf) {
       const cm = metrics[conf];
-      insight3 = `✅ <strong>${conf}</strong> — זרם + קונוויקשן מאשרים סנטימנט שורי (${cm.bullishPct.toFixed(0)}% · Conv ${Math.round(cm.convictionScore)})`;
+      insight3 = `✅ <strong>${conf}</strong> — זרם ועוצמה שוריים בהתאמה (${cm.bullishPct.toFixed(0)}% מהפרמיה, עוצמה ${cm.convictionScore >= 65 ? 'חזקה' : 'מתונה'})`;
     } else if (overallScore <= 40) {
-      insight3 = `⚠️ סנטימנט שלילי — שלושת המדדים מציגים לחץ דובי`;
+      insight3 = `⚠️ סנטימנט שלילי — המדדים מציגים לחץ דובי`;
       insight3Class = 'insight-risk';
     }
   }
